@@ -5,10 +5,8 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 
-/**
- * Created by civi on 26/04/16.
- */
-public class StartServer {
+
+public class ServerAmministratore {
 
     private static final String HOST = "localhost";
     private static final int PORT = 1337;
