@@ -20,12 +20,13 @@ public class DroneClient {
             Client client = Client.create();
             WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
-            Random rnd = new Random();
+            Random rnd = new Random(10);
             String id = Integer.toString(rnd.nextInt(10000));
-            String portaAscolto = "9999";
+            String portaAscolto = "9999"; //sistemare
+            Drone drone = new Drone(id, portaAscolto, "http://localhost:1337/");
 
-            String input = "{\"id\": id, \"portaAscolto\": \"portaAscolto\", \"indirizzoServerAmministratore\": \"http://localhost:1337\"}";
-            ClientResponse response = webResource.type("application/json").post(ClientResponse.class, input);
+
+            ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
 
             System.out.println("Output from Server .... \n");
             String output = response.getEntity(String.class);
