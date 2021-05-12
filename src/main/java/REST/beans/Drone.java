@@ -1,5 +1,7 @@
 package REST.beans;
 
+import javafx.util.Pair;
+
 import javax.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
@@ -7,14 +9,15 @@ public class Drone {
 
     private String id;
     private String portaAscolto;
-    private String indirizzoServerAmministratore;
+    private String indirizzoIpDrone;
+    private Posizione posizionePartenza;
 
-    public Drone(){};
+    public Drone(){}
 
-    public Drone(String id, String portaAscolto, String indirizzoServerAmministratore){
+    public Drone(String id, String portaAscolto, String indirizzoIpDrone){
         this.id = id;
         this.portaAscolto = portaAscolto;
-        this.indirizzoServerAmministratore = indirizzoServerAmministratore;
+        this.indirizzoIpDrone = indirizzoIpDrone;
     }
 
     public String getId(){return this.id;}
@@ -23,6 +26,16 @@ public class Drone {
     public String getPortaAscolto(){return this.portaAscolto;}
     public void setPortaAscolto(String portaAscolto){ this.portaAscolto = portaAscolto;}
 
-    public String getIndirizzoServerAmministratore(){return this.indirizzoServerAmministratore;}
-    public void setIndirizzoServerAmministratore(String indirizzoServerAmministratore){this.indirizzoServerAmministratore = indirizzoServerAmministratore;}
+    public String getIndirizzoIpDrone(){return this.indirizzoIpDrone;}
+    public void setIndirizzoIpDrone(String indirizzoServerAmministratore){this.indirizzoIpDrone = indirizzoServerAmministratore;}
+
+    public void setPosizionePartenza(Posizione posizionePartenza) {
+        this.posizionePartenza = posizionePartenza;
+    }
+
+    public Posizione getPosizionePartenza() {
+        return this.posizionePartenza;
+    }
+
 }
+

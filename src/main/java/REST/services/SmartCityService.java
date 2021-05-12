@@ -2,9 +2,11 @@ package REST.services;
 
 import REST.beans.Drone;
 import REST.beans.SmartCity;
+import javafx.util.Pair;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
+import java.awt.*;
 import java.util.List;
 
 @Path("smartcity")
@@ -12,8 +14,8 @@ public class SmartCityService {
 
     //restituisce la lista di Droni nella smartCity
     @GET
-    @Produces({"application/json", "application/xml"})
-    public Response getSmartCity(){
+    @Produces({"application/json"})
+    public Response getSmartCityInformation(){
         return Response.ok(SmartCity.getInstance()).build();
     }
 
@@ -22,7 +24,8 @@ public class SmartCityService {
     @Consumes({"application/json"})
     public Response addDrone(Drone drone){
         SmartCity.getInstance().addDrone(drone);
-        String result = "Drone aggiunto: " + drone;
+        String result = "Drone aggiunto in posizione di partenza: "+ drone.getPosizionePartenza() + "\n" +
+                "Attualmente i droni presenti nella smartCity sono: \n" + SmartCity.getInstance().stampaSmartCity();
         return Response.status(201).entity(result).build();
     }
 

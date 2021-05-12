@@ -4,12 +4,14 @@ import com.sun.jersey.api.container.httpserver.HttpServerFactory;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-
+import java.util.Dictionary;
 
 public class ServerAmministratore {
 
     private static final String HOST = "localhost";
     private static final int PORT = 1337;
+
+    private Dictionary statistics;
 
 
     public static void main(String[] args) throws IOException {

@@ -1,18 +1,26 @@
-package DronazonePackage;
+package DronazonPackage;
 
 import REST.beans.Drone;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.config.ClientConfig;
-import com.sun.jersey.api.client.config.DefaultClientConfig;
-import com.sun.jersey.api.json.JSONConfiguration;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.util.Random;
 
 public class DroneClient {
+
+    private boolean isMaster = false;
+    private int id;
+    private int portaAscoltoComunicazioneDroni;
+    private String indirizzo;
+
+    public DroneClient(int id, int portaAscoltoComunicazioneDroni, String indirizzo){
+        this.id = id;
+        this.portaAscoltoComunicazioneDroni = portaAscoltoComunicazioneDroni;
+        this.indirizzo = indirizzo;
+    }
 
     public static void main(String[] args) {
 
@@ -20,10 +28,12 @@ public class DroneClient {
             Client client = Client.create();
             WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
-            Random rnd = new Random(10);
+            Random rnd = new Random();
             String id = Integer.toString(rnd.nextInt(10000));
             String portaAscolto = "9999"; //sistemare
-            Drone drone = new Drone(id, portaAscolto, "http://localhost:1337/");
+
+
+            Drone drone = new Drone(id, portaAscolto, "to do");
 
 
             ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
@@ -32,7 +42,7 @@ public class DroneClient {
             String output = response.getEntity(String.class);
             System.out.println(output);
 
-        }catch (Exception e){
+        }catch (Exception e) {
             e.printStackTrace();
         }
     }

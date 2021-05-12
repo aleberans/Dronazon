@@ -1,6 +1,7 @@
 plugins {
     id "java"
     id "war" // for REST
+    id "com.diffplug.spotless" version "5.12.4"
 }
 
 group 'org.example'
