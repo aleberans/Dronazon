@@ -21,4 +21,10 @@ public class StatisticsService {
         return Response.ok().build();
     }
 
+    /*@GET
+    @Path("/query")
+    public Response getMediaNumeroConsegneDroniBetweenTimestamps(@QueryParam("from") long timestamp1, @QueryParam("to") long timestamp2){
+
+    }*/
+
 }

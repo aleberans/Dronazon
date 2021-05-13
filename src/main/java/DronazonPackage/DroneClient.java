@@ -11,39 +11,39 @@ import java.util.Random;
 
 public class DroneClient {
 
+    private static Random rnd = new Random();
     private boolean isMaster = false;
     private int id;
     private int portaAscoltoComunicazioneDroni;
-    private String indirizzo;
+    private String indirizzoIP;
 
-    public DroneClient(int id, int portaAscoltoComunicazioneDroni, String indirizzo){
+    public DroneClient(int id, int portaAscoltoComunicazioneDroni, String indirizzoIP){
         this.id = id;
         this.portaAscoltoComunicazioneDroni = portaAscoltoComunicazioneDroni;
-        this.indirizzo = indirizzo;
+        this.indirizzoIP = indirizzoIP;
     }
 
     public static void main(String[] args) {
 
         try{
-            Client client = Client.create();
-            WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
-
-            Random rnd = new Random();
-            String id = Integer.toString(rnd.nextInt(10000));
-            String portaAscolto = "9999"; //sistemare
-
-
-            Drone drone = new Drone(id, portaAscolto, "to do");
-
-
-            ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
-
-            System.out.println("Output from Server .... \n");
-            String output = response.getEntity(String.class);
-            System.out.println(output);
+            System.out.println(addDroneServer());
 
         }catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static String addDroneServer(){
+        Client client = Client.create();
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
+
+        String id = Integer.toString(rnd.nextInt(10000));
+        String portaAscolto = "9999"; //sistemare
+
+        Drone drone = new Drone(id, portaAscolto, "localhost");
+
+        ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
+        System.out.println("Output from Server .... \n");
+        return  response.getEntity(String.class);
     }
 }

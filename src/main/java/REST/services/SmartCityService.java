@@ -24,7 +24,8 @@ public class SmartCityService {
     @Consumes({"application/json"})
     public Response addDrone(Drone drone){
         SmartCity.getInstance().addDrone(drone);
-        String result = "Drone aggiunto in posizione di partenza: "+ drone.getPosizionePartenza() + "\n" +
+        String result = "Drone aggiunto in posizione di partenza: "+ "(" + drone.getPosizionePartenza().getxPosizioneIniziale() + ","
+                + drone.getPosizionePartenza().getyPosizioneIniziale() +  ")\n" +
                 "Attualmente i droni presenti nella smartCity sono: \n" + SmartCity.getInstance().stampaSmartCity();
         return Response.status(201).entity(result).build();
     }

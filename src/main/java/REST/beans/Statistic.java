@@ -1,11 +1,12 @@
 package REST.beans;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import java.sql.Timestamp;
 
 @XmlRootElement
 public class Statistic {
 
-    private String timestamp;
+    private long timestamp;
     private int numeroConsegne;
     private int kmPercorsi;
     private int inquinamento;
@@ -13,7 +14,7 @@ public class Statistic {
 
     public Statistic(){}
 
-    public Statistic(String timestamp, int numeroConsegne, int kmPercorsi, int inquinamento, int batteriaResidua){
+    public Statistic(long timestamp, int numeroConsegne, int kmPercorsi, int inquinamento, int batteriaResidua){
 
         this.timestamp = timestamp;
         this.numeroConsegne = numeroConsegne;
@@ -22,8 +23,8 @@ public class Statistic {
         this.batteriaResidua = batteriaResidua;
     }
 
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) {this.timestamp = timestamp;}
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) {this.timestamp = timestamp;}
 
     public int getNumeroConsegne() {return numeroConsegne;}
     public void setNumeroConsegne(int numeroConsegne) {this.numeroConsegne = numeroConsegne;}

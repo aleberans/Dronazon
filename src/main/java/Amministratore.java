@@ -4,12 +4,10 @@ import REST.beans.Statistics;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
-import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
 
 import java.io.IOException;
-import java.util.List;
+import java.sql.Timestamp;
 import java.util.Scanner;
 
 public class Amministratore {
@@ -34,11 +32,24 @@ public class Amministratore {
                     int n = sc.nextInt();
                     output = getNGlobalStatistics(n);
                          break;
+                case 3: output = "to do";
+                        break;
                 default: output = "Invalid insert";
                          break;
             }
             System.out.println(output);
         }
+    }
+
+    private static String getMediaNumeroConsegneBetweenTimestamp(Timestamp timestamp1, Timestamp timestamp2) throws IOException {
+        Client client = Client.create();
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/statistics/");
+        ClientResponse response = webResource.accept("application/json").get(ClientResponse.class);
+
+        String output = response.getEntity(String.class);
+        ObjectMapper objectMapper = new ObjectMapper();
+        Statistics statistics = objectMapper.readValue(output, Statistics.class);
+        return  "Output from Server .... \n" + statistics.getMediaNumeroConsegneBetweenTimestamp(timestamp1, timestamp2);
     }
 
     private static String getNGlobalStatistics(int n) throws IOException {
@@ -49,7 +60,7 @@ public class Amministratore {
         String output = response.getEntity(String.class);
         ObjectMapper objectMapper = new ObjectMapper();
         Statistics statistics = objectMapper.readValue(output, Statistics.class);
-        return  "Output from Server .... \n" + statistics.stampStatistics();
+        return  "Output from Server .... \n" + statistics.stampStatistics(n);
 
     }
 
