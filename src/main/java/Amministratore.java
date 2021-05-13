@@ -1,4 +1,3 @@
-import REST.beans.Drone;
 import REST.beans.SmartCity;
 import REST.beans.Statistics;
 import com.sun.jersey.api.client.Client;
@@ -32,7 +31,12 @@ public class Amministratore {
                     int n = sc.nextInt();
                     output = getNGlobalStatistics(n);
                          break;
-                case 3: output = "to do";
+                case 3:
+                    System.out.println("Inserisci due timestamp per fare la richiesta:\nPrimo timestamp: ");
+                    String t1 = sc.next();
+                    System.out.println("Secondo timestamp");
+                    String t2 = sc.next();
+                    output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
                         break;
                 default: output = "Invalid insert";
                          break;
@@ -41,35 +45,31 @@ public class Amministratore {
         }
     }
 
-    private static String getMediaNumeroConsegneBetweenTimestamp(Timestamp timestamp1, Timestamp timestamp2) throws IOException {
-        Client client = Client.create();
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/statistics/");
-        ClientResponse response = webResource.accept("application/json").get(ClientResponse.class);
-
-        String output = response.getEntity(String.class);
+    private static String getMediaNumeroConsegneBetweenTimestamp(String timestamp1, String timestamp2) throws IOException {
+        String output = getOutput("http://localhost:1337/smartcity/statistics/");
         ObjectMapper objectMapper = new ObjectMapper();
         Statistics statistics = objectMapper.readValue(output, Statistics.class);
         return  "Output from Server .... \n" + statistics.getMediaNumeroConsegneBetweenTimestamp(timestamp1, timestamp2);
     }
 
     private static String getNGlobalStatistics(int n) throws IOException {
-        Client client = Client.create();
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/statistics/");
-        ClientResponse response = webResource.accept("application/json").get(ClientResponse.class);
-
-        String output = response.getEntity(String.class);
+        String output = getOutput("http://localhost:1337/smartcity/statistics/");
         ObjectMapper objectMapper = new ObjectMapper();
         Statistics statistics = objectMapper.readValue(output, Statistics.class);
         return  "Output from Server .... \n" + statistics.stampStatistics(n);
 
     }
 
-    public static String getListaDroni() throws IOException {
+    private static String getOutput(String s) {
         Client client = Client.create();
-        WebResource webResource = client.resource("http://localhost:1337/smartcity");
+        WebResource webResource = client.resource(s);
         ClientResponse response = webResource.accept("application/json").get(ClientResponse.class);
 
-        String output = response.getEntity(String.class);
+        return response.getEntity(String.class);
+    }
+
+    public static String getListaDroni() throws IOException {
+        String output = getOutput("http://localhost:1337/smartcity");
         ObjectMapper objectMapper = new ObjectMapper();
         SmartCity smartCity = objectMapper.readValue(output, SmartCity.class);
 

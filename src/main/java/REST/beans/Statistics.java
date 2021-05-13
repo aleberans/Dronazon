@@ -45,8 +45,18 @@ public class Statistics {
         return result.toString();
     }
 
-    public String getMediaNumeroConsegneBetweenTimestamp(Timestamp timestamp1, Timestamp timestamp2) {
-        StringBuilder result = new StringBuilder();
-        return result.toString();
+    public String getMediaNumeroConsegneBetweenTimestamp(String timestamp1, String timestamp2) {
+
+        int nConsegneTot = 0;
+        int posT1 = 0;
+        int posT2 = 0;
+        Timestamp t1 = Timestamp.valueOf(timestamp1);
+        Timestamp t2 = Timestamp.valueOf(timestamp2);
+        for (Statistic stat: statistics) {
+            if (Timestamp.valueOf(stat.getTimestamp()).after(t1) &&
+               Timestamp.valueOf(stat.getTimestamp()).before(t2))
+                nConsegneTot += stat.getNumeroConsegne();
+        }
+        return "Consegne totali tra i due timestamp selezionati è: " + nConsegneTot;
     }
 }

@@ -21,10 +21,10 @@ public class StatisticsService {
         return Response.ok().build();
     }
 
-    /*@GET
+    @GET
     @Path("/query")
-    public Response getMediaNumeroConsegneDroniBetweenTimestamps(@QueryParam("from") long timestamp1, @QueryParam("to") long timestamp2){
-
-    }*/
+    public Response getMediaNumeroConsegneDroniBetweenTimestamps(@QueryParam("from") String timestamp1, @QueryParam("to") String timestamp2){
+        return Response.ok(Statistics.getInstance().getMediaNumeroConsegneBetweenTimestamp(timestamp1, timestamp2)).build();
+    }
 
 }

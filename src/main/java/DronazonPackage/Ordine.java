@@ -1,6 +1,7 @@
 package DronazonPackage;
 
 
+import REST.beans.Posizione;
 import javafx.util.Pair;
 
 import java.awt.*;
@@ -10,14 +11,14 @@ import java.util.TimerTask;
 public class Ordine extends TimerTask {
 
     private final int id;
-    private final Pair<Integer, Integer> puntoRitiro;
-    private final Pair<Integer, Integer> puntoConsegna;
+    private final Posizione puntoRitiro;
+    private final Posizione puntoConsegna;
     Random rnd = new Random();
 
     public Ordine(){
         id = rnd.nextInt(1000);
-        puntoRitiro = new Pair<>(rnd.nextInt(10), rnd.nextInt(10));
-        puntoConsegna = new Pair<>(rnd.nextInt(10), rnd.nextInt(10));
+        puntoRitiro = new Posizione(rnd.nextInt(10), rnd.nextInt(10));
+        puntoConsegna = new Posizione(rnd.nextInt(10), rnd.nextInt(10));
     }
 
     @Override
