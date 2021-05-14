@@ -1,5 +1,6 @@
 package REST.services;
 
+import REST.beans.SmartCity;
 import REST.beans.Statistic;
 import REST.beans.Statistics;
 
@@ -18,7 +19,8 @@ public class StatisticsService {
     @Consumes({"application/json"})
     public Response addStatistic(Statistic stat){
         Statistics.getInstance().addStatistic(stat);
-        return Response.ok().build();
+        String respose = "Statistica aggiunta!";
+        return Response.status(201).entity(respose).build();
     }
 
     @GET

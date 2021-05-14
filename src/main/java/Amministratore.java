@@ -33,9 +33,10 @@ public class Amministratore {
                          break;
                 case 3:
                     System.out.println("Inserisci due timestamp per fare la richiesta:\nPrimo timestamp: ");
-                    String t1 = sc.next();
+                    sc.nextLine();
+                    String t1 = sc.nextLine();
                     System.out.println("Secondo timestamp");
-                    String t2 = sc.next();
+                    String t2 = sc.nextLine();
                     output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
                         break;
                 default: output = "Invalid insert";

@@ -1,12 +1,17 @@
 package DronazonPackage;
 
 import REST.beans.Drone;
+import REST.beans.Statistic;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.sql.Timestamp;
+import java.util.Date;
 import java.util.Random;
 
 public class DroneClient {
@@ -26,7 +31,27 @@ public class DroneClient {
     public static void main(String[] args) {
 
         try{
+            BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+
             System.out.println(addDroneServer());
+            /*while(!bf.readLine().equals("quit")){
+                Client client = Client.create();
+                WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
+
+                Date date = new Date();
+                Timestamp ts = new Timestamp(date.getTime());
+
+                int numeroConsegne = 10;
+                int kmPercorsi = 2;
+                int inquinamento = 9;
+                int batteriaResidua = 3;
+
+                Statistic statistic = new Statistic(ts, numeroConsegne, kmPercorsi, inquinamento, batteriaResidua);
+                ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
+                System.out.println("Output from Server .... \n");
+                System.out.println(response.getEntity(String.class));
+
+            }*/
 
         }catch (Exception e) {
             e.printStackTrace();

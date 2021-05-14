@@ -23,8 +23,13 @@ public class Statistic {
         this.batteriaResidua = batteriaResidua;
     }
 
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) {this.timestamp = timestamp;}
+    public String getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(String timestamp) {
+        this.timestamp = timestamp;
+    }
 
     public int getNumeroConsegne() {return numeroConsegne;}
     public void setNumeroConsegne(int numeroConsegne) {this.numeroConsegne = numeroConsegne;}
