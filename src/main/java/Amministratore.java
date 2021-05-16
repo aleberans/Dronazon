@@ -37,7 +37,8 @@ public class Amministratore {
                     String t1 = sc.nextLine();
                     System.out.println("Secondo timestamp");
                     String t2 = sc.nextLine();
-                    output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
+                    //output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
+                    output = "to do";
                         break;
                 default: output = "Invalid insert";
                          break;

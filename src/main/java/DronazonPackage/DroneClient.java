@@ -34,28 +34,31 @@ public class DroneClient {
             BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
             System.out.println(addDroneServer());
-            /*while(!bf.readLine().equals("quit")){
-                Client client = Client.create();
-                WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
+            while(!bf.readLine().equals("quit")){
 
-                Date date = new Date();
-                Timestamp ts = new Timestamp(date.getTime());
 
-                int numeroConsegne = 10;
-                int kmPercorsi = 2;
-                int inquinamento = 9;
-                int batteriaResidua = 3;
-
-                Statistic statistic = new Statistic(ts, numeroConsegne, kmPercorsi, inquinamento, batteriaResidua);
-                ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
-                System.out.println("Output from Server .... \n");
-                System.out.println(response.getEntity(String.class));
-
-            }*/
-
+            }
+            System.out.println("Il drone è uscito dalla rete in maniera forzata!");
         }catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static String sendStatistics(){
+        Client client = Client.create();
+        WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
+
+        Date date = new Date();
+        Timestamp ts = new Timestamp(date.getTime());
+
+        int numeroConsegne = 10;
+        int kmPercorsi = 2;
+        int inquinamento = 9;
+        int batteriaResidua = 3;
+
+        Statistic statistic = new Statistic(ts.toString(), numeroConsegne, kmPercorsi, inquinamento, batteriaResidua);
+        ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
+        return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
     public static String addDroneServer(){

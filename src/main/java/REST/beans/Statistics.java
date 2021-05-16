@@ -2,6 +2,7 @@ package REST.beans;
 
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,11 +53,20 @@ public class Statistics {
         int posT2 = 0;
         Timestamp t1 = Timestamp.valueOf(timestamp1);
         Timestamp t2 = Timestamp.valueOf(timestamp2);
-        for (Statistic stat: statistics) {
-            if (Timestamp.valueOf(stat.getTimestamp()).after(t1) &&
-               Timestamp.valueOf(stat.getTimestamp()).before(t2))
+        /*for (Statistic stat: statistics) {
+            Timestamp timestampStat = Timestamp.valueOf(stat.getTimestamp());
+
+            if (timestampStat.after(t1) || timestampStat.equals(t1)){
+                for (Statistic stat2: statistics) {
+                    nConsegneTot += stat.getNumeroConsegne();
+                }
+            }
+                &&
+                    (timestampStat.before(t2) || timestampStat.equals(t2)))
                 nConsegneTot += stat.getNumeroConsegne();
-        }
+            else
+                nConsegneTot = -10;
+        }*/
         return "Consegne totali tra i due timestamp selezionati è: " + nConsegneTot;
     }
 }
