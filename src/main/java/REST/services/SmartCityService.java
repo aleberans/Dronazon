@@ -2,12 +2,9 @@ package REST.services;
 
 import REST.beans.Drone;
 import REST.beans.SmartCity;
-import javafx.util.Pair;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
-import java.awt.*;
-import java.util.List;
 
 @Path("smartcity")
 public class SmartCityService {

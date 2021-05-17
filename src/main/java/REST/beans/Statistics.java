@@ -49,24 +49,47 @@ public class Statistics {
     public String getMediaNumeroConsegneBetweenTimestamp(String timestamp1, String timestamp2) {
 
         int nConsegneTot = 0;
-        int posT1 = 0;
-        int posT2 = 0;
+        int cont = 0;
         Timestamp t1 = Timestamp.valueOf(timestamp1);
         Timestamp t2 = Timestamp.valueOf(timestamp2);
-        /*for (Statistic stat: statistics) {
+        for (Statistic stat: statistics) {
             Timestamp timestampStat = Timestamp.valueOf(stat.getTimestamp());
 
             if (timestampStat.after(t1) || timestampStat.equals(t1)){
                 for (Statistic stat2: statistics) {
-                    nConsegneTot += stat.getNumeroConsegne();
+                    Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());
+                    cont++;
+                    nConsegneTot += stat2.getNumeroConsegne();
+
+                    if (timestampStat2.before(t2) || timestampStat2.equals(t2))
+                        break;
                 }
             }
-                &&
-                    (timestampStat.before(t2) || timestampStat.equals(t2)))
-                nConsegneTot += stat.getNumeroConsegne();
-            else
-                nConsegneTot = -10;
-        }*/
-        return "Consegne totali tra i due timestamp selezionati è: " + nConsegneTot;
+        }
+        return "Consegne medie tra i due timestamp selezionati è: " + nConsegneTot/cont;
+    }
+
+    public String getMediaKMPercorsiBetweenTimestamp(String timestamp1, String timestamp2) {
+
+        int nKmPercorsiTot = 0;
+        int cont = 0;
+        Timestamp t1 = Timestamp.valueOf(timestamp1);
+        Timestamp t2 = Timestamp.valueOf(timestamp2);
+
+        for (Statistic stat: statistics) {
+            Timestamp timestampStat = Timestamp.valueOf(stat.getTimestamp());
+
+            if (timestampStat.after(t1) || timestampStat.equals(t1)) {
+                for (Statistic stat2 : statistics) {
+                    Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());
+                    cont++;
+                    nKmPercorsiTot += stat2.getKmPercorsi();
+
+                    if (timestampStat2.before(t2) || timestampStat2.equals(t2))
+                        break;
+                }
+            }
+        }
+        return "Kilometri medi percorsi tra i due timestamp selezionati è: " + nKmPercorsiTot/cont;
     }
 }

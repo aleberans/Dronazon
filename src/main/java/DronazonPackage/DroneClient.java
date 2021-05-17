@@ -66,7 +66,7 @@ public class DroneClient {
         WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
         String id = Integer.toString(rnd.nextInt(10000));
-        String portaAscolto = "9999"; //sistemare
+        String portaAscolto = Integer.toString(rnd.nextInt(2000-1000) + 1000);
 
         Drone drone = new Drone(id, portaAscolto, "localhost");
 

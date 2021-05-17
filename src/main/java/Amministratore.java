@@ -35,11 +35,18 @@ public class Amministratore {
                     System.out.println("Inserisci due timestamp per fare la richiesta:\nPrimo timestamp: ");
                     sc.nextLine();
                     String t1 = sc.nextLine();
-                    System.out.println("Secondo timestamp");
+                    System.out.println("Secondo timestamp: ");
                     String t2 = sc.nextLine();
-                    //output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
-                    output = "to do";
+                    output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
                         break;
+                case 4:
+                    System.out.println("Inserisci due timestamp per fare la richiesta\nPrimo timestamp: ");
+                    sc.nextLine();
+                    String t12 = sc.nextLine();
+                    System.out.println("Secondo timestamp: ");
+                    String t22 = sc.nextLine();
+                    output = getMediaKMPercorsiBetweenTimestamp(t12, t22);
+                    break;
                 default: output = "Invalid insert";
                          break;
             }
@@ -47,11 +54,18 @@ public class Amministratore {
         }
     }
 
+    private static String getMediaKMPercorsiBetweenTimestamp(String t1, String t2) throws IOException {
+        String output = getOutput("http://localhost:1337/smartcity/statistics/");
+        ObjectMapper objectMapper = new ObjectMapper();
+        Statistics statistics = objectMapper.readValue(output, Statistics.class);
+        return "Output from server...\n" + statistics.getMediaKMPercorsiBetweenTimestamp(t1, t2);
+    }
+
     private static String getMediaNumeroConsegneBetweenTimestamp(String timestamp1, String timestamp2) throws IOException {
         String output = getOutput("http://localhost:1337/smartcity/statistics/");
         ObjectMapper objectMapper = new ObjectMapper();
         Statistics statistics = objectMapper.readValue(output, Statistics.class);
-        return  "Output from Server .... \n" + statistics.getMediaNumeroConsegneBetweenTimestamp(timestamp1, timestamp2);
+        return  "Output from Server.... \n" + statistics.getMediaNumeroConsegneBetweenTimestamp(timestamp1, timestamp2);
     }
 
     private static String getNGlobalStatistics(int n) throws IOException {
@@ -59,7 +73,6 @@ public class Amministratore {
         ObjectMapper objectMapper = new ObjectMapper();
         Statistics statistics = objectMapper.readValue(output, Statistics.class);
         return  "Output from Server .... \n" + statistics.stampStatistics(n);
-
     }
 
     private static String getOutput(String s) {

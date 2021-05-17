@@ -2,9 +2,7 @@ package DronazonPackage;
 
 
 import REST.beans.Posizione;
-import javafx.util.Pair;
 
-import java.awt.*;
 import java.util.Random;
 import java.util.TimerTask;
 

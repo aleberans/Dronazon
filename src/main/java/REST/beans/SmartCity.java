@@ -1,5 +1,4 @@
 package REST.beans;
-import javafx.util.Pair;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;

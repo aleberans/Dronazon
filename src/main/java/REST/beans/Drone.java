@@ -1,6 +1,5 @@
 package REST.beans;
 
-import javafx.util.Pair;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
