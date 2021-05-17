@@ -8,16 +8,14 @@ import com.sun.jersey.api.client.WebResource;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.Random;
 
 public class DroneClient {
 
-    private static Random rnd = new Random();
-    private boolean isMaster = false;
+    private final static Random rnd = new Random();
+    private int batteria;
     private int id;
     private int portaAscoltoComunicazioneDroni;
     private String indirizzoIP;
@@ -34,6 +32,7 @@ public class DroneClient {
             BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
             System.out.println(addDroneServer());
+
             while(!bf.readLine().equals("quit")){
 
 
@@ -71,7 +70,6 @@ public class DroneClient {
         Drone drone = new Drone(id, portaAscolto, "localhost");
 
         ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
-        System.out.println("Output from Server .... \n");
-        return  response.getEntity(String.class);
+        return "Output from Server .... \n"  + response.getEntity(String.class);
     }
 }

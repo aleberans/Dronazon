@@ -19,8 +19,8 @@ public class StatisticsService {
     @Consumes({"application/json"})
     public Response addStatistic(Statistic stat){
         Statistics.getInstance().addStatistic(stat);
-        String respose = "Statistica aggiunta!";
-        return Response.status(201).entity(respose).build();
+        String response = "Statistica aggiunta!";
+        return Response.status(201).entity(response).build();
     }
 
     @GET
