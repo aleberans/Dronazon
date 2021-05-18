@@ -1,15 +1,25 @@
 package DronazonPackage;
 
 import REST.beans.Drone;
+import REST.beans.SmartCity;
 import REST.beans.Statistic;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.GenericType;
 import com.sun.jersey.api.client.WebResource;
+import com.sun.jersey.api.client.config.ClientConfig;
+import com.sun.jersey.api.client.config.DefaultClientConfig;
+import com.sun.jersey.api.json.JSONConfiguration;
+import network.Network;
+import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 
+import javax.ws.rs.core.MediaType;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Random;
 
 public class DroneClient {
@@ -31,10 +41,10 @@ public class DroneClient {
         try{
             BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
-            System.out.println(addDroneServer());
+            List<Drone> drones = addDroneServer();
+            System.out.println(drones);
 
             while(!bf.readLine().equals("quit")){
-
 
             }
             System.out.println("Il drone è uscito dalla rete in maniera forzata!");
@@ -60,8 +70,12 @@ public class DroneClient {
         return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
-    public static String addDroneServer(){
-        Client client = Client.create();
+    public static List<Drone> addDroneServer(){
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
+
         WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
         String id = Integer.toString(rnd.nextInt(10000));
@@ -70,6 +84,7 @@ public class DroneClient {
         Drone drone = new Drone(id, portaAscolto, "localhost");
 
         ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
-        return "Output from Server .... \n"  + response.getEntity(String.class);
+
+        return response.getEntity(new GenericType<List<Drone>>() {});
     }
 }

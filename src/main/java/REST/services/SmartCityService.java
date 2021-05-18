@@ -4,12 +4,14 @@ import REST.beans.Drone;
 import REST.beans.SmartCity;
 
 import javax.ws.rs.*;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.Response;
+import java.util.List;
 
 @Path("smartcity")
 public class SmartCityService {
 
-    //restituisce la lista di Droni nella smartCity
+    //restituisce la lista di Droni della smartCity
     @GET
     @Produces({"application/json"})
     public Response getSmartCityInformation(){
@@ -18,13 +20,11 @@ public class SmartCityService {
 
     @Path("add")
     @POST
-    @Consumes({"application/json"})
+    @Produces({"application/json"})
     public Response addDrone(Drone drone){
-        SmartCity.getInstance().addDrone(drone);
-        String result = "Drone aggiunto in posizione di partenza: "+ "(" + drone.getPosizionePartenza().getxPosizioneIniziale() + ","
-                + drone.getPosizionePartenza().getyPosizioneIniziale() +  ")\n" +
-                "Attualmente i droni presenti nella smartCity sono: \n" + SmartCity.getInstance().stampaSmartCity();
-        return Response.status(201).entity(result).build();
+        GenericEntity<List<Drone>> entity = new GenericEntity<List<Drone>>(SmartCity.getInstance().addDrone(drone)) {
+        };
+        return Response.ok(entity).build();
     }
 
     @DELETE

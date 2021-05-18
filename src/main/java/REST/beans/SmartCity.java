@@ -14,7 +14,7 @@ public class SmartCity {
 
     private static SmartCity instance;
 
-    private List<Drone> smartCity;
+    private ArrayList<Drone> smartCity;
 
     private SmartCity(){smartCity = new ArrayList<>();}
 
@@ -41,14 +41,16 @@ public class SmartCity {
         return result.toString();
     }
 
-    public synchronized void setSmartCity(List<Drone> smartCity){this.smartCity = smartCity;}
+    public synchronized void setSmartCity(ArrayList<Drone> smartCity){this.smartCity = smartCity;}
 
-    public synchronized void addDrone(Drone drone){
+    public synchronized ArrayList<Drone> addDrone(Drone drone) {
         if (checkEqualId(drone))
             throw new IllegalArgumentException("Il drone inserito esiste già!");
         Random rnd = new Random();
         drone.setPosizionePartenza(new Posizione(rnd.nextInt(10), rnd.nextInt(10)));
-        smartCity.add(drone);}
+        smartCity.add(drone);
+        return smartCity;
+    }
 
     public synchronized void deleteDrone(Drone drone){
         if (!checkEqualId(drone))
