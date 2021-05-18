@@ -17,7 +17,7 @@ import java.util.Scanner;
 public class check {
     public static void main(String[] args) throws IOException {
 
-        Client client = Client.create();
+        /*Client client = Client.create();
         WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
 
         Date date = new Date();
@@ -37,6 +37,8 @@ public class check {
             System.out.println("ok");
         else
             System.out.println("no");*/
+
+
 
     }
 }

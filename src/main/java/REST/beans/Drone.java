@@ -1,6 +1,8 @@
 package REST.beans;
 
 
+import DronazonPackage.DroneClient;
+
 import javax.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
@@ -31,7 +33,6 @@ public class Drone {
     public void setPosizionePartenza(Posizione posizionePartenza) {
         this.posizionePartenza = posizionePartenza;
     }
-
     public Posizione getPosizionePartenza() {
         return this.posizionePartenza;
     }
