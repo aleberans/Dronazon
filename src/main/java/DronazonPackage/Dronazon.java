@@ -13,7 +13,7 @@ public class Dronazon{
         String broker = "tcp://localhost:1883";
         String clientId = MqttClient.generateClientId();
         String topic = "dronazon/smartcity/orders/";
-        int qos = 2;
+        int qos = 0;
         Ordine ordine;
 
         try {
@@ -33,7 +33,7 @@ public class Dronazon{
                 }
 
                 public void connectionLost(Throwable cause) {
-                    System.out.println(clientId + " Connectionlost! cause:" + cause.getMessage());
+                    System.out.println(clientId + " Connection lost! cause:" + cause.getMessage());
                 }
 
                 public void deliveryComplete(IMqttDeliveryToken token) {
@@ -46,19 +46,22 @@ public class Dronazon{
                 }
             });
 
+            while(true){
+                ordine = new Ordine();
+                MqttMessage message = new MqttMessage(ordine.toString().getBytes());
 
-            ordine = new Ordine();
-            MqttMessage message = new MqttMessage(ordine.toString().getBytes());
+                // Set the QoS on the Message
+                message.setQos(qos);
+                System.out.println(clientId + " Publishing message: " + message + " ...");
+                client.publish(topic, message);
+                //System.out.println(clientId + " Message published - Thread PID: " + Thread.currentThread().getId());
+                Thread.sleep(5000);
+            }
 
-            // Set the QoS on the Message
-            message.setQos(qos);
-            System.out.println(clientId + " Publishing message: " + message + " ...");
-            client.publish(topic, message);
-            System.out.println(clientId + " Message published - Thread PID: " + Thread.currentThread().getId());
 
-            if (client.isConnected())
+            /*if (client.isConnected())
                 client.disconnect();
-            System.out.println("Publisher " + clientId + " disconnected - Thread PID: " + Thread.currentThread().getId());
+            System.out.println("Publisher " + clientId + " disconnected - Thread PID: " + Thread.currentThread().getId());*/
 
         } catch (MqttException me) {
             System.out.println("reason " + me.getReasonCode());
@@ -67,6 +70,8 @@ public class Dronazon{
             System.out.println("cause " + me.getCause());
             System.out.println("excep " + me);
             me.printStackTrace();
+        } catch (InterruptedException e){
+            e.printStackTrace();
         }
     }
 }

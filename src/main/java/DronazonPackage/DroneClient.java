@@ -11,6 +11,7 @@ import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
 import com.sun.jersey.core.util.MultivaluedMapImpl;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+import org.eclipse.paho.client.mqttv3.*;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
@@ -47,16 +48,14 @@ public class DroneClient<isMaster> {
 
             List<Drone> drones = addDroneServer(drone);
 
+
             if (drones.size()==1)
                 drone.setIsMaster(true);
 
-            drone.setNextDrone(drones.get(0));
+            ringUpdateNextDrone(drone, drones);
 
-            for(Drone d: drones){
-                if (d.getNextDrone() == drones.get(0))
-                    d.setNextDrone(drone);
-            }
-
+            if (drone.getIsMaster())
+                subTopic("dronazon/smartcity/orders/");
 
 
             while(!bf.readLine().equals("quit")){
@@ -68,6 +67,55 @@ public class DroneClient<isMaster> {
             System.out.println("Il drone è uscito dalla rete in maniera forzata!");
         }catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void subTopic(String topic) {
+        MqttClient client;
+        String broker = "tcp://localhost:1883";
+        String clientId = MqttClient.generateClientId();
+        int qos = 0;
+
+        try {
+            client = new MqttClient(broker, clientId);
+            MqttConnectOptions connectOptions = new MqttConnectOptions();
+            connectOptions.setCleanSession(true);
+
+            client.connect();
+
+            client.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable cause) {
+                    System.out.println(clientId + " Connectionlost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
+                }
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) throws Exception {
+
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {
+
+                }
+            });
+
+            System.out.println(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
+            client.subscribe(topic,qos);
+            System.out.println(clientId + " Subscribed to topics : " + topic);
+
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {
+        drone.setNextDrone(drones.get(0));
+
+        for(Drone d: drones){
+            if (d.getNextDrone() == drones.get(0))
+                d.setNextDrone(drone);
         }
     }
 
