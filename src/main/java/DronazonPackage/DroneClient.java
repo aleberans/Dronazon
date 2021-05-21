@@ -22,7 +22,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
-public class DroneClient<isMaster> {
+public class DroneClient{
 
     private final static Random rnd = new Random();
     private int id;
@@ -58,12 +58,10 @@ public class DroneClient<isMaster> {
                 subTopic("dronazon/smartcity/orders/");
 
 
-            while(!bf.readLine().equals("quit")){
+            /*while(!bf.readLine().equals("quit")){
 
 
-
-
-            }
+            }*/
             System.out.println("Il drone è uscito dalla rete in maniera forzata!");
         }catch (Exception e) {
             e.printStackTrace();
@@ -148,4 +146,5 @@ public class DroneClient<isMaster> {
 
         return response.getEntity(new GenericType<List<Drone>>() {});
     }
+
 }

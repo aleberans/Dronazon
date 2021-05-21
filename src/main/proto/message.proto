@@ -1,0 +1,6 @@
+message Drone{
+  required string id =1;
+  required bool isPresent = 3;
+  required bool isMaster = 2;
+}
+

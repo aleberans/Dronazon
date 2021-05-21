@@ -15,6 +15,7 @@ public class Drone {
     private Posizione posizionePartenza;
     @JsonIgnore private Drone nextDrone;
     @JsonIgnore private boolean isMaster;
+    @JsonIgnore private int batteria = 100;
 
     public Drone(){}
 
@@ -54,6 +55,14 @@ public class Drone {
 
     public void setIsMaster(boolean master) {
         isMaster = master;
+    }
+
+    public void setBatteria(int batteria) {
+        this.batteria = batteria;
+    }
+
+    public int getBatteria() {
+        return batteria;
     }
 }
 
