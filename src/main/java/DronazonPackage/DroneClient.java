@@ -27,9 +27,6 @@ public class DroneClient<isMaster> {
     private int id;
     private int portaAscoltoComunicazioneDroni;
     private String indirizzoIP;
-    private DroneClient nextDrone;
-    private int batteria = 100;
-    private boolean static isMaster;
 
     public DroneClient(int id, int portaAscoltoComunicazioneDroni, String indirizzoIP){
         this.id = id;
@@ -42,22 +39,25 @@ public class DroneClient<isMaster> {
         try{
             BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
-            List<Drone> drones = addDroneServer();
-            System.out.println(drones.size());
+            String id = Integer.toString(rnd.nextInt(10000));
+            String portaAscolto = Integer.toString(rnd.nextInt(1000) + 1000);
+            String ip = "localhost";
 
-            if (drones.size() == 1) {
-                //this.isMaster = true;
-                drones.get(0).setNextDrone(drones.get(0));
-            }
-            else{
-                //ultimo punta al primo
-                drones.get(drones.size()-1).setNextDrone(drones.get(0));
-                //penultimo punta all'ultimo
-                drones.get(drones.size()-2).setNextDrone(drones.get(drones.size()-1));
+            Drone drone = new Drone(id, portaAscolto, ip);
+
+            List<Drone> drones = addDroneServer(drone);
+
+            if (drones.size()==1)
+                drone.setIsMaster(true);
+
+            drone.setNextDrone(drones.get(0));
+
+            for(Drone d: drones){
+                if (d.getNextDrone() == drones.get(0))
+                    d.setNextDrone(drone);
             }
 
-            System.out.println(drones.get(drones.size()-1).getId());
-            System.out.println(drones.get(drones.size()-1).getNextDrone());
+
 
             while(!bf.readLine().equals("quit")){
 
@@ -88,7 +88,7 @@ public class DroneClient<isMaster> {
         return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
-    public static List<Drone> addDroneServer(){
+    public static List<Drone> addDroneServer(Drone drone){
         ClientConfig clientConfig = new DefaultClientConfig();
         clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
         clientConfig.getClasses().add(JacksonJsonProvider.class);
@@ -96,16 +96,7 @@ public class DroneClient<isMaster> {
 
         WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
-        String id = Integer.toString(rnd.nextInt(10000));
-        String portaAscolto = Integer.toString(rnd.nextInt(2000-1000) + 1000);
-        String ip = "localhost";
-
-        MultivaluedMap<String, String> droneParams = new MultivaluedMapImpl();
-
-        droneParams.add("id", id);
-        droneParams.add("porta", portaAscolto);
-        droneParams.add("ip", ip);
-        ClientResponse response = webResource.type(MediaType.APPLICATION_FORM_URLENCODED).post(ClientResponse.class, droneParams);
+        ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
 
         return response.getEntity(new GenericType<List<Drone>>() {});
     }

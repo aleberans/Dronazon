@@ -22,9 +22,7 @@ public class SmartCityService {
     @Path("add")
     @POST
     @Produces({"application/json"})
-    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
-    public Response addDrone(@FormParam("id") String id, @FormParam("porta") String porta, @FormParam("ip") String ip){
-        Drone drone = new Drone(id, porta, ip);
+    public Response addDrone(Drone drone){
         GenericEntity<List<Drone>> entity = new GenericEntity<List<Drone>>(SmartCity.getInstance().addDrone(drone)) {
         };
         return Response.ok(entity).build();

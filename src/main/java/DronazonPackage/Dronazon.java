@@ -1,9 +1,6 @@
 package DronazonPackage;
 
-import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.*;
 
 
 import static java.lang.Thread.sleep;
@@ -19,7 +16,6 @@ public class Dronazon{
         int qos = 2;
         Ordine ordine;
 
-
         try {
             client = new MqttClient(broker, clientId);
             MqttConnectOptions connOpts = new MqttConnectOptions();
@@ -28,23 +24,41 @@ public class Dronazon{
             // Connect the client
             System.out.println(clientId + " Connecting Broker " + broker);
             client.connect(connOpts);
-            System.out.println(clientId + " Connected");
+            System.out.println(clientId + " Connected - Thread PID: " + Thread.currentThread().getId());
 
-            while(true) {
-                ordine = new Ordine();
-                MqttMessage message = new MqttMessage(ordine.toString().getBytes());
+            // Callback
+            client.setCallback(new MqttCallback() {
+                public void messageArrived(String topic, MqttMessage message) {
+                    // Not used Here
+                }
 
-                // Set the QoS on the Message
-                message.setQos(qos);
-                System.out.println(clientId + " Publishing message: " + ordine + " ...");
-                client.publish(topic, message);
-                System.out.println(clientId + " Message published");
-                sleep(5000);
-            }
+                public void connectionLost(Throwable cause) {
+                    System.out.println(clientId + " Connectionlost! cause:" + cause.getMessage());
+                }
 
-            /*if (client.isConnected())
+                public void deliveryComplete(IMqttDeliveryToken token) {
+                    // Until the delivery is completed, messages with QoS 1 or 2 are retained from the client
+                    // Delivery for a message is completed when all acknowledgments have been received
+                    // When the callback returns from deliveryComplete to the main thread, the client removes the retained messages with QoS 1 or 2.
+                    if (token.isComplete()) {
+                        System.out.println(clientId + " Message delivered - Thread PID: " + Thread.currentThread().getId());
+                    }
+                }
+            });
+
+
+            ordine = new Ordine();
+            MqttMessage message = new MqttMessage(ordine.toString().getBytes());
+
+            // Set the QoS on the Message
+            message.setQos(qos);
+            System.out.println(clientId + " Publishing message: " + message + " ...");
+            client.publish(topic, message);
+            System.out.println(clientId + " Message published - Thread PID: " + Thread.currentThread().getId());
+
+            if (client.isConnected())
                 client.disconnect();
-            System.out.println("Publisher " + clientId + " disconnected");*/
+            System.out.println("Publisher " + clientId + " disconnected - Thread PID: " + Thread.currentThread().getId());
 
         } catch (MqttException me) {
             System.out.println("reason " + me.getReasonCode());
@@ -53,8 +67,6 @@ public class Dronazon{
             System.out.println("cause " + me.getCause());
             System.out.println("excep " + me);
             me.printStackTrace();
-        } catch (InterruptedException e){
-            e.printStackTrace();
         }
     }
 }

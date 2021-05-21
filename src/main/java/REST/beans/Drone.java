@@ -2,6 +2,7 @@ package REST.beans;
 
 
 import DronazonPackage.DroneClient;
+import org.codehaus.jackson.annotate.JsonIgnore;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
@@ -12,6 +13,8 @@ public class Drone {
     private String portaAscolto;
     private String indirizzoIpDrone;
     private Posizione posizionePartenza;
+    @JsonIgnore private Drone nextDrone;
+    @JsonIgnore private boolean isMaster;
 
     public Drone(){}
 
@@ -37,5 +40,20 @@ public class Drone {
         return this.posizionePartenza;
     }
 
+    public Drone getNextDrone() {
+        return nextDrone;
+    }
+
+    public void setNextDrone(Drone nextDrone) {
+        this.nextDrone = nextDrone;
+    }
+
+    public boolean getIsMaster() {
+        return isMaster;
+    }
+
+    public void setIsMaster(boolean master) {
+        isMaster = master;
+    }
 }
 
