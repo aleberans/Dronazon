@@ -41,6 +41,8 @@ dependencies {
     // https://mvnrepository.com/artifact/com.sun.jersey/jersey-server
     compile group: 'com.sun.jersey', name: 'jersey-server', version: '1.2'
 
+    compile "com.google.code.gson:gson:2.7"
+
 
 
     // MQTT Dependencies

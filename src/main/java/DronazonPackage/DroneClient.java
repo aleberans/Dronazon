@@ -54,14 +54,22 @@ public class DroneClient{
 
             ringUpdateNextDrone(drone, drones);
 
-            if (drone.getIsMaster())
+            if (drone.getIsMaster()) {
                 subTopic("dronazon/smartcity/orders/");
+            }
+            else {
+                for (Drone d: drones){
+
+                }
+            }
 
 
-            /*while(!bf.readLine().equals("quit")){
+
+            while(!bf.readLine().equals("quit")){
 
 
-            }*/
+            }
+            System.exit(0);
             System.out.println("Il drone è uscito dalla rete in maniera forzata!");
         }catch (Exception e) {
             e.printStackTrace();
@@ -87,9 +95,16 @@ public class DroneClient{
                     System.out.println(clientId + " Connectionlost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
                 }
 
+
                 @Override
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
-
+                    String time = new Timestamp(System.currentTimeMillis()).toString();
+                    String receivedMessage = new String(message.getPayload());
+                    System.out.println(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
+                            "\n\tTime:    " + time +
+                            "\n\tTopic:   " + topic +
+                            "\n\tMessage: " + receivedMessage +
+                            "\n\tQoS:     " + message.getQos() + "\n");
                 }
 
                 @Override
@@ -102,8 +117,14 @@ public class DroneClient{
             client.subscribe(topic,qos);
             System.out.println(clientId + " Subscribed to topics : " + topic);
 
-        } catch (MqttException e) {
-            e.printStackTrace();
+        } catch (MqttException me) {
+            System.out.println("reason " + me.getReasonCode());
+            System.out.println("msg " + me.getMessage());
+            System.out.println("loc " + me.getLocalizedMessage());
+            System.out.println("cause " + me.getCause());
+            System.out.println("excep " + me);
+            me.printStackTrace();
+
         }
 
     }

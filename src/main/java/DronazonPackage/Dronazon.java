@@ -1,5 +1,6 @@
 package DronazonPackage;
 
+import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
 
 
@@ -48,7 +49,9 @@ public class Dronazon{
 
             while(true){
                 ordine = new Ordine();
-                MqttMessage message = new MqttMessage(ordine.toString().getBytes());
+                Gson gjson = new Gson();
+                String payload = gjson.toJson(ordine);
+                MqttMessage message = new MqttMessage(payload.getBytes());
 
                 // Set the QoS on the Message
                 message.setQos(qos);
