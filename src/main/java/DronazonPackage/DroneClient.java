@@ -2,6 +2,9 @@ package DronazonPackage;
 
 import REST.beans.Drone;
 import REST.beans.Statistic;
+import com.example.grpc.DronePresentationGrpc;
+import com.example.grpc.DronePresentationGrpc.*;
+import com.example.grpc.Message.*;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.GenericType;
@@ -9,25 +12,30 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
-import com.sun.jersey.core.util.MultivaluedMapImpl;
+import gRPCService.DronePresentationImpl;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 import org.eclipse.paho.client.mqttv3.*;
 
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class DroneClient{
 
     private final static Random rnd = new Random();
-    private int id;
-    private int portaAscoltoComunicazioneDroni;
-    private String indirizzoIP;
+    private static int id;
+    private static int portaAscoltoComunicazioneDroni;
+    private static String indirizzoIP;
+    private static Drone drone;
 
     public DroneClient(int id, int portaAscoltoComunicazioneDroni, String indirizzoIP){
         this.id = id;
@@ -40,11 +48,11 @@ public class DroneClient{
         try{
             BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
-            String id = Integer.toString(rnd.nextInt(10000));
-            String portaAscolto = Integer.toString(rnd.nextInt(1000) + 1000);
+            int id = rnd.nextInt(10000);
+            String portaAscolto = Integer.toString(rnd.nextInt(1000) + 8888);
             String ip = "localhost";
 
-            Drone drone = new Drone(id, portaAscolto, ip);
+            drone = new Drone(id, portaAscolto, ip);
 
             List<Drone> drones = addDroneServer(drone);
 
@@ -54,16 +62,19 @@ public class DroneClient{
 
             ringUpdateNextDrone(drone, drones);
 
+            System.out.println("ciao");
+
+            Server server = ServerBuilder.forPort(portaAscoltoComunicazioneDroni).addService(new DronePresentationImpl(drones)).build();
+            server.start();
+            System.out.println("server Started");
+
             if (drone.getIsMaster()) {
                 subTopic("dronazon/smartcity/orders/");
             }
             else {
-                for (Drone d: drones){
-
-                }
+                asynchronousSendDroneInformation(drone.getNextDrone().getPortaAscolto());
+                System.out.println("ciao");
             }
-
-
 
             while(!bf.readLine().equals("quit")){
 
@@ -74,6 +85,36 @@ public class DroneClient{
         }catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static void asynchronousSendDroneInformation(String porta) throws InterruptedException {
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+porta).usePlaintext().build();
+
+        DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
+
+        SendInfoDrone.Position position = SendInfoDrone.Position.newBuilder().setX(1)
+                .setY(1).build();
+
+        SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(Integer.parseInt(drone.getPortaAscolto()))
+                .setIndirizzoDrone(drone.getIndirizzoIpDrone()).setPosition(position).build();
+
+        stub.presentation(info, new StreamObserver<ackMessage>() {
+            @Override
+            public void onNext(ackMessage value) {
+                System.out.println(value.getMessage());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println("Error" + t.getMessage());
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(10, TimeUnit.SECONDS);
     }
 
     private static void subTopic(String topic) {

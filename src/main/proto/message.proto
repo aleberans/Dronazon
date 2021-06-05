@@ -1,9 +1,19 @@
-message sendPosition{
+package com.example.grpc;
+
+message SendInfoDrone{
+  required int32 id=1;
+  required int32 portaAscolto=2;
+  required string indirizzoDrone=3;
+  required Position position=5;
+
   message Position{
     required int32 x =1;
     required int32 y=2;
   }
-  required Position position=1;
+}
+
+message ackMessage{
+  required string message=1;
 }
 
 message consegna{
@@ -17,14 +27,16 @@ message consegna{
   }
 }
 
-message whoMaster{
+message WhoMaster{
   required int32 master=1;
 }
 
+service DronePresentation{
+  rpc presentation(SendInfoDrone) returns (ackMessage);
+}
 
-
-service dronePresentation{
-  rpc presentation(sendPosition) returns (whoMaster);
+service SendWhoIsMaster{
+  rpc master(WhoMaster) returns (ackMessage);
 }
 
 

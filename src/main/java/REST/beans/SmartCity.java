@@ -60,7 +60,7 @@ public class SmartCity {
     public boolean checkEqualId(Drone drone){
         boolean sem = false;
         for (Drone d : smartCity) {
-            if (d.getId().equals(drone.getId())) {
+            if (d.getId() == drone.getId()) {
                 sem = true;
                 break;
             }

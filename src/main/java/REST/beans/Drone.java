@@ -9,7 +9,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 public class Drone {
 
-    private String id;
+    private int id;
     private String portaAscolto;
     private String indirizzoIpDrone;
     private Posizione posizionePartenza;
@@ -19,14 +19,14 @@ public class Drone {
 
     public Drone(){}
 
-    public Drone(String id, String portaAscolto, String indirizzoIpDrone){
+    public Drone(int id, String portaAscolto, String indirizzoIpDrone){
         this.id = id;
         this.portaAscolto = portaAscolto;
         this.indirizzoIpDrone = indirizzoIpDrone;
     }
 
-    public String getId(){return this.id;}
-    public void setId(String id){this.id = id;}
+    public int getId(){return this.id;}
+    public void setId(int id){this.id = id;}
 
     public String getPortaAscolto(){return this.portaAscolto;}
     public void setPortaAscolto(String portaAscolto){ this.portaAscolto = portaAscolto;}
