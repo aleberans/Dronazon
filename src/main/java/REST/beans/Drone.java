@@ -10,7 +10,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class Drone {
 
     private int id;
-    private String portaAscolto;
+    private int portaAscolto;
     private String indirizzoIpDrone;
     private Posizione posizionePartenza;
     @JsonIgnore private Drone nextDrone;
@@ -19,7 +19,7 @@ public class Drone {
 
     public Drone(){}
 
-    public Drone(int id, String portaAscolto, String indirizzoIpDrone){
+    public Drone(int id, int portaAscolto, String indirizzoIpDrone){
         this.id = id;
         this.portaAscolto = portaAscolto;
         this.indirizzoIpDrone = indirizzoIpDrone;
@@ -28,8 +28,8 @@ public class Drone {
     public int getId(){return this.id;}
     public void setId(int id){this.id = id;}
 
-    public String getPortaAscolto(){return this.portaAscolto;}
-    public void setPortaAscolto(String portaAscolto){ this.portaAscolto = portaAscolto;}
+    public int getPortaAscolto(){return this.portaAscolto;}
+    public void setPortaAscolto(int portaAscolto){ this.portaAscolto = portaAscolto;}
 
     public String getIndirizzoIpDrone(){return this.indirizzoIpDrone;}
     public void setIndirizzoIpDrone(String indirizzoServerAmministratore){this.indirizzoIpDrone = indirizzoServerAmministratore;}

@@ -18,7 +18,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
     public void presentation(SendInfoDrone info, StreamObserver<ackMessage> streamObserver){
 
         System.out.println(info);
-        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuta ricezione informazioni nuovo noodo\n").build();
+        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuta ricezione informazioni nuovo noodo").build();
 
         streamObserver.onNext(message);
         streamObserver.onCompleted();

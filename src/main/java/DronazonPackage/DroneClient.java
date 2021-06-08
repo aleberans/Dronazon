@@ -22,11 +22,10 @@ import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 import org.eclipse.paho.client.mqttv3.*;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class DroneClient{
@@ -46,56 +45,82 @@ public class DroneClient{
     public static void main(String[] args) {
 
         try{
-            BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
             int id = rnd.nextInt(10000);
-            String portaAscolto = Integer.toString(rnd.nextInt(1000) + 8888);
+            int portaAscolto = rnd.nextInt(1000) + 8888;
             String ip = "localhost";
 
             drone = new Drone(id, portaAscolto, ip);
 
             List<Drone> drones = addDroneServer(drone);
 
-
+            System.out.println("Porta:" + drone.getPortaAscolto());
             if (drones.size()==1)
                 drone.setIsMaster(true);
 
-            ringUpdateNextDrone(drone, drones);
+            //ordino totale della lista in base all'id
+            drones.sort(Comparator.comparingInt(Drone::getId));
 
-            System.out.println("ciao");
-
-            Server server = ServerBuilder.forPort(portaAscoltoComunicazioneDroni).addService(new DronePresentationImpl(drones)).build();
+            Server server = ServerBuilder.forPort(portaAscolto).addService(new DronePresentationImpl(drones)).build();
             server.start();
             System.out.println("server Started");
 
             if (drone.getIsMaster()) {
+                System.out.println("Sono il primo master");
                 subTopic("dronazon/smartcity/orders/");
             }
             else {
-                asynchronousSendDroneInformation(drone.getNextDrone().getPortaAscolto());
-                System.out.println("ciao");
+                //prendo la posizione del nodo successivo in modulo
+                int posSuccessivo = (drones.indexOf(findDrone(drones, drone))+1)%drones.size();
+                asynchronousSendDroneInformation(drones.get(posSuccessivo).getPortaAscolto());
             }
 
-            while(!bf.readLine().equals("quit")){
-
-
+            //start Thread in attesa di quit
+            StopThread stop = new StopThread();
+            stop.start();
+            synchronized (stop){
+                stop.wait();
             }
-            System.exit(0);
-            System.out.println("Il drone è uscito dalla rete in maniera forzata!");
         }catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static void asynchronousSendDroneInformation(String porta) throws InterruptedException {
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+porta).usePlaintext().build();
+    public static Drone findDrone(List<Drone> drones, Drone drone){
+
+        for (Drone d: drones){
+            if (d.getId() == drone.getId())
+                return d;
+        }
+        return drone;
+    }
+
+    static class StopThread extends Thread{
+        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    if (!!bf.readLine().equals("quit")) break;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            }
+            System.exit(0);
+            System.out.println("Il drone è uscito dalla rete in maniera forzata!");
+        }
+    }
+
+    public static void asynchronousSendDroneInformation(int porta) throws InterruptedException {
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + porta).usePlaintext().build();
 
         DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
 
         SendInfoDrone.Position position = SendInfoDrone.Position.newBuilder().setX(1)
                 .setY(1).build();
 
-        SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(Integer.parseInt(drone.getPortaAscolto()))
+        SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
                 .setIndirizzoDrone(drone.getIndirizzoIpDrone()).setPosition(position).build();
 
         stub.presentation(info, new StreamObserver<ackMessage>() {
@@ -107,6 +132,9 @@ public class DroneClient{
             @Override
             public void onError(Throwable t) {
                 System.out.println("Error" + t.getMessage());
+                System.out.println("Error" + t.getCause());
+                System.out.println("Error" + t.getLocalizedMessage());
+                System.out.println("Error" + Arrays.toString(t.getStackTrace()));
             }
 
             @Override
@@ -170,14 +198,14 @@ public class DroneClient{
 
     }
 
-    private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {
+    /*private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {
         drone.setNextDrone(drones.get(0));
 
         for(Drone d: drones){
             if (d.getNextDrone() == drones.get(0))
                 d.setNextDrone(drone);
         }
-    }
+    }*/
 
     public static String sendStatistics(){
         Client client = Client.create();
