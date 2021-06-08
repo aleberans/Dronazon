@@ -1,5 +1,6 @@
 package gRPCService;
 import REST.beans.Drone;
+import REST.beans.Posizione;
 import com.example.grpc.DronePresentationGrpc.DronePresentationImplBase;
 import com.example.grpc.Message.*;
 import io.grpc.stub.StreamObserver;
@@ -17,9 +18,12 @@ public class DronePresentationImpl extends DronePresentationImplBase{
     @Override
     public void presentation(SendInfoDrone info, StreamObserver<ackMessage> streamObserver){
 
-        System.out.println(info);
-        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuta ricezione informazioni nuovo noodo").build();
+        Posizione position = new Posizione(info.getPosition().getX(), info.getPosition().getY());
+        Drone drone = new Drone(info.getId(), info.getPortaAscolto(), info.getIndirizzoDrone());
+        drone.setPosizionePartenza(position);
+        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuto invio delle informazioni").build();
 
+        drones.add(drone);
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }
