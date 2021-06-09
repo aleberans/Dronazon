@@ -28,7 +28,10 @@ message consegna{
 }
 
 message WhoMaster{
-  required int32 master=1;
+}
+
+message WhoIsMaster{
+  required int32 idMaster=1;
 }
 
 service DronePresentation{
@@ -36,7 +39,7 @@ service DronePresentation{
 }
 
 service SendWhoIsMaster{
-  rpc master(WhoMaster) returns (ackMessage);
+  rpc master(WhoMaster) returns (WhoIsMaster);
 }
 
 

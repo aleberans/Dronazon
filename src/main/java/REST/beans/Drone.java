@@ -16,6 +16,7 @@ public class Drone {
     @JsonIgnore private Drone nextDrone;
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
+    @JsonIgnore private Drone droneMaster;
 
     public Drone(){}
 
@@ -63,6 +64,28 @@ public class Drone {
 
     public int getBatteria() {
         return batteria;
+    }
+
+    public void setDroneMaster(Drone master) {
+        droneMaster = master;
+    }
+
+    public Drone getDroneMaster() {
+        return droneMaster;
+    }
+
+    @Override
+    public String toString() {
+        return "Drone{" +
+                "id=" + id +
+                ", portaAscolto=" + portaAscolto +
+                ", indirizzoIpDrone='" + indirizzoIpDrone + '\'' +
+                ", posizionePartenza=" + posizionePartenza +
+                ", nextDrone=" + nextDrone +
+                ", isMaster=" + isMaster +
+                ", batteria=" + batteria +
+                ", droneMaster=" + droneMaster +
+                '}';
     }
 }
 

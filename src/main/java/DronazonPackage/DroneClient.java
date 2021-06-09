@@ -15,6 +15,7 @@ import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
 import gRPCService.DronePresentationImpl;
+import gRPCService.SendWhoIsMasterImpl;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
@@ -42,7 +43,7 @@ public class DroneClient{
         try{
 
             int id = rnd.nextInt(10000);
-            int portaAscolto = rnd.nextInt(1000) + 8888;
+            int portaAscolto = rnd.nextInt(100) + 8080;
             String ip = "localhost";
 
             drone = new Drone(id, portaAscolto, ip);
@@ -50,15 +51,23 @@ public class DroneClient{
             List<Drone> drones = addDroneServer(drone);
 
             System.out.println("Porta:" + drone.getPortaAscolto());
-            if (drones.size()==1)
+            if (drones.size()==1){
+                System.out.println("ok");
+                //drones.get(drones.indexOf(findDrone(drones, drone))).setIsMaster(true);
                 drone.setIsMaster(true);
+                drone.setDroneMaster(drone);
+            }
 
             //ordino totale della lista in base all'id
             drones.sort(Comparator.comparingInt(Drone::getId));
 
-            Server server = ServerBuilder.forPort(portaAscolto).addService(new DronePresentationImpl(drones)).build();
+            Server server = ServerBuilder.forPort(portaAscolto)
+                    .addService(new DronePresentationImpl(drones))
+                    .addService(new SendWhoIsMasterImpl(drones, drone))
+                    .build();
             server.start();
             System.out.println("server Started");
+
 
             if (drone.getIsMaster()) {
                 System.out.println("Sono il primo master");
@@ -68,7 +77,7 @@ public class DroneClient{
                 //prendo la posizione del nodo successivo in modulo
                 //int posSuccessivo = (drones.indexOf(findDrone(drones, drone))+1)%drones.size();
                 asynchronousSendDroneInformation(drone, drones);
-                asynchronousSendWhoIsMaster(drones);
+                asynchronousSendWhoIsMaster(drones, drone);
             }
 
             //start Thread in attesa di quit
@@ -82,37 +91,45 @@ public class DroneClient{
         }
     }
 
-    public static void asynchronousSendWhoIsMaster(List<Drone> drones, drone) throws InterruptedException {
-        for (Drone d: drones){
-            if (d.getIsMaster()){
-                final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + d.getPortaAscolto()).usePlaintext().build();
+    private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) throws InterruptedException {
 
-                SendWhoIsMasterStub stub1 = SendWhoIsMasterGrpc.newStub(channel);
+        int pos = drones.indexOf(findDrone(drones, drone));
+        Drone succ = drones.get( (pos+1)%drones.size());
+        System.out.println("succ:"+succ.toString());
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+ succ.getPortaAscolto()).usePlaintext().build();
 
-                WhoMaster whoMaster = WhoMaster.newBuilder().setMaster(d.getId()).build();
-                stub1.master(whoMaster , new StreamObserver<ackMessage> (){
+        SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
 
-                    @Override
-                    public void onNext(ackMessage value) {
-                        System.out.println(value.getMessage());
-                    }
-
-                    @Override
-                    public void onError(Throwable t) {
-                        System.out.println("Error" + t.getMessage());
-                        System.out.println("Error" + t.getCause());
-                        System.out.println("Error" + t.getLocalizedMessage());
-                        System.out.println("Error" + Arrays.toString(t.getStackTrace()));
-                    }
-
-                    @Override
-                    public void onCompleted() {
-                        channel.shutdown();
-                    }
-                });
-                channel.awaitTermination(10, TimeUnit.SECONDS);
+        WhoMaster info = WhoMaster.newBuilder().build();
+        stub.master(info, new StreamObserver<WhoIsMaster>() {
+            @Override
+            public void onNext(WhoIsMaster value) {
+                drone.setDroneMaster(takeDroneFromId(drones, value.getIdMaster()));
             }
+
+            @Override
+            public void onError(Throwable t) {
+                System.out.println("Error" + t.getMessage());
+                System.out.println("Error" + t.getCause());
+                System.out.println("Error" + t.getLocalizedMessage());
+                System.out.println("Error" + Arrays.toString(t.getStackTrace()));
+                t.printStackTrace();
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(1, TimeUnit.SECONDS);
+    }
+
+    public static Drone takeDroneFromId(List<Drone> drones, int id){
+        for (Drone d: drones){
+            if (d.getId()==id)
+                return d;
         }
+        return null;
     }
 
     public static Drone findDrone(List<Drone> drones, Drone drone){
@@ -148,7 +165,7 @@ public class DroneClient{
         Predicate<Drone> byId = dr -> dr.getId() != d.getId();
         List<Drone> pulito = drones.stream().filter(byId).collect(Collectors.toList());
 
-        //mando a tutti le informazioni relative ai parametri del drone
+        //mando a tutti le informazioni dei parametri del drone
         for (Drone dron: pulito){
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + dron.getPortaAscolto()).usePlaintext().build();
 
@@ -179,7 +196,7 @@ public class DroneClient{
                     channel.shutdown();
                 }
             });
-            channel.awaitTermination(10, TimeUnit.SECONDS);
+            channel.awaitTermination(1, TimeUnit.SECONDS);
         }
     }
 
