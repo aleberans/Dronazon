@@ -17,6 +17,7 @@ public class Drone {
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
+    @JsonIgnore private boolean isOccupato = false;
 
     public Drone(){}
 
@@ -86,6 +87,14 @@ public class Drone {
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
                 '}';
+    }
+
+    public boolean isOccupato() {
+        return isOccupato;
+    }
+
+    public void setOccupato(boolean occupato) {
+        isOccupato = occupato;
     }
 }
 

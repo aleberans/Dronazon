@@ -1,12 +1,14 @@
 package DronazonPackage;
 
 import REST.beans.Drone;
+import REST.beans.Posizione;
 import REST.beans.Statistic;
 import com.example.grpc.DronePresentationGrpc;
 import com.example.grpc.DronePresentationGrpc.*;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendWhoIsMasterGrpc;
 import com.example.grpc.SendWhoIsMasterGrpc.*;
+import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.GenericType;
@@ -36,7 +38,7 @@ import java.util.stream.Collectors;
 public class DroneClient{
 
     private final static Random rnd = new Random();
-    private static Drone drone;
+    private static Gson gson = new Gson();
 
     public static void main(String[] args) {
 
@@ -46,7 +48,7 @@ public class DroneClient{
             int portaAscolto = rnd.nextInt(100) + 8080;
             String ip = "localhost";
 
-            drone = new Drone(id, portaAscolto, ip);
+            Drone drone = new Drone(id, portaAscolto, ip);
 
             List<Drone> drones = addDroneServer(drone);
 
@@ -71,11 +73,9 @@ public class DroneClient{
 
             if (drone.getIsMaster()) {
                 System.out.println("Sono il primo master");
-                subTopic("dronazon/smartcity/orders/");
+                subTopic("dronazon/smartcity/orders/", drones, drone);
             }
             else {
-                //prendo la posizione del nodo successivo in modulo
-                //int posSuccessivo = (drones.indexOf(findDrone(drones, drone))+1)%drones.size();
                 asynchronousSendDroneInformation(drone, drones);
                 asynchronousSendWhoIsMaster(drones, drone);
             }
@@ -93,8 +93,7 @@ public class DroneClient{
 
     private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) throws InterruptedException {
 
-        int pos = drones.indexOf(findDrone(drones, drone));
-        Drone succ = drones.get( (pos+1)%drones.size());
+        Drone succ = takeDroneSuccessivo(drone, drones);
         System.out.println("succ:"+succ.toString());
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+ succ.getPortaAscolto()).usePlaintext().build();
 
@@ -200,7 +199,7 @@ public class DroneClient{
         }
     }
 
-    private static void subTopic(String topic) {
+    private static void subTopic(String topic, List<Drone> drones, Drone drone) {
         MqttClient client;
         String broker = "tcp://localhost:1883";
         String clientId = MqttClient.generateClientId();
@@ -229,6 +228,13 @@ public class DroneClient{
                             "\n\tTopic:   " + topic +
                             "\n\tMessage: " + receivedMessage +
                             "\n\tQoS:     " + message.getQos() + "\n");
+
+                    Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
+                    //System.out.println(ordine.toString());
+
+                    //Drone droneTarget =
+                    computeDroneCheDeveEffettuareLaConsegna(ordine, drones);
+                    //sendConsegnaAlDroneSuccessivo(receivedMessage, drones, drone);
                 }
 
                 @Override
@@ -251,6 +257,35 @@ public class DroneClient{
 
         }
 
+    }
+
+    private static int computeDistance(Drone drone, Posizione posizione){
+
+    }
+
+
+    private static void computeDroneCheDeveEffettuareLaConsegna(Ordine ordine, List<Drone> drones){
+        Posizione puntoRitiro = ordine.getPuntoRitiro();
+        int distanza = 0;
+        for(Drone d : drones){
+            if (!d.isOccupato()){
+                distanza = computeDistance(d, puntoRitiro);
+            }
+        }
+    }
+
+    /*rivate static void sendConsegnaAlDroneSuccessivo(String receivedMessage, List<Drone> drones, Drone drone) {
+        Drone succ = takeDroneSuccessivo(drone, drones);
+        Drone target = computeDroneCheDeveEffettuareLaConsegna(receivedMessage, drones);
+
+
+
+    }*/
+
+    private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
+        int pos = drones.indexOf(findDrone(drones, drone));
+        Drone succ = drones.get( (pos+1)%drones.size());
+        return succ;
     }
 
     /*private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {

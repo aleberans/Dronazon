@@ -32,5 +32,11 @@ public class Posizione {
         this.yPosizioneIniziale = yPosizioneIniziale;
     }
 
-
+    @Override
+    public String toString() {
+        return "Posizione{" +
+                "xPosizioneIniziale=" + xPosizioneIniziale +
+                ", yPosizioneIniziale=" + yPosizioneIniziale +
+                '}';
+    }
 }

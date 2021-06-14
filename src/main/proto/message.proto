@@ -42,5 +42,9 @@ service SendWhoIsMaster{
   rpc master(WhoMaster) returns (WhoIsMaster);
 }
 
+service SendConsegnaToDrone{
+  rpc sendConsegna(consegna) returns (ackMessage);
+}
+
 
 
