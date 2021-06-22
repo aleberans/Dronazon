@@ -1,32 +1,27 @@
 package DronazonPackage;
 
-import REST.beans.Posizione;
+import java.awt.*;
 import java.util.Random;
 
 public class Ordine{
 
     private final int id;
-    private final Posizione puntoRitiro;
-    private final Posizione puntoConsegna;
+    private final Point puntoRitiro;
+    private final Point puntoConsegna;
 
     public Ordine(){
         Random rnd = new Random();
         id = rnd.nextInt(1000);
-        puntoRitiro = new Posizione(rnd.nextInt(10), rnd.nextInt(10));
-        puntoConsegna = new Posizione(rnd.nextInt(10), rnd.nextInt(10));
+        puntoRitiro = new Point(rnd.nextInt(10), rnd.nextInt(10));
+        puntoConsegna = new Point(rnd.nextInt(10), rnd.nextInt(10));
     }
 
-    public Ordine(int id, Posizione puntoRitiro, Posizione puntoConsegna){
-        this.id = id;
-        this.puntoConsegna = puntoConsegna;
-        this.puntoRitiro = puntoRitiro;
-    }
 
-    public Posizione getPuntoConsegna() {
+    public Point getPuntoConsegna() {
         return puntoConsegna;
     }
 
-    public Posizione getPuntoRitiro() {
+    public Point getPuntoRitiro() {
         return puntoRitiro;
     }
 

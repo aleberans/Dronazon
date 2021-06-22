@@ -4,6 +4,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -46,8 +47,6 @@ public class SmartCity {
     public synchronized ArrayList<Drone> addDrone(Drone drone) {
         if (checkEqualId(drone))
             throw new IllegalArgumentException("Il drone inserito esiste già!");
-        Random rnd = new Random();
-        drone.setPosizionePartenza(new Posizione(rnd.nextInt(10), rnd.nextInt(10)));
         smartCity.add(drone);
         return smartCity;
     }

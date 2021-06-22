@@ -5,6 +5,7 @@ import DronazonPackage.DroneClient;
 import org.codehaus.jackson.annotate.JsonIgnore;
 
 import javax.xml.bind.annotation.XmlRootElement;
+import java.awt.*;
 
 @XmlRootElement
 public class Drone {
@@ -12,7 +13,7 @@ public class Drone {
     private int id;
     private int portaAscolto;
     private String indirizzoIpDrone;
-    private Posizione posizionePartenza;
+    @JsonIgnore private Point posizionePartenza;
     @JsonIgnore private Drone nextDrone;
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
@@ -36,10 +37,10 @@ public class Drone {
     public String getIndirizzoIpDrone(){return this.indirizzoIpDrone;}
     public void setIndirizzoIpDrone(String indirizzoServerAmministratore){this.indirizzoIpDrone = indirizzoServerAmministratore;}
 
-    public void setPosizionePartenza(Posizione posizionePartenza) {
+    public void setPosizionePartenza(Point posizionePartenza) {
         this.posizionePartenza = posizionePartenza;
     }
-    public Posizione getPosizionePartenza() {
+    public Point getPosizionePartenza() {
         return this.posizionePartenza;
     }
 

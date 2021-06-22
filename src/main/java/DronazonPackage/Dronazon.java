@@ -1,12 +1,17 @@
 package DronazonPackage;
 
 import com.google.gson.Gson;
+import jdk.nashorn.internal.runtime.logging.DebugLogger;
 import org.eclipse.paho.client.mqttv3.*;
 
+
+import java.util.logging.Logger;
 
 import static java.lang.Thread.sleep;
 
 public class Dronazon{
+
+    private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
 
     public static void main(String[] args) {
 
@@ -23,9 +28,9 @@ public class Dronazon{
             connOpts.setCleanSession(true);
 
             // Connect the client
-            System.out.println(clientId + " Connecting Broker " + broker);
+            LOGGER.info(clientId + " Connecting Broker " + broker);
             client.connect(connOpts);
-            System.out.println(clientId + " Connected - Thread PID: " + Thread.currentThread().getId());
+            LOGGER.info(clientId + " Connected - Thread PID: " + Thread.currentThread().getId());
 
             // Callback
             client.setCallback(new MqttCallback() {
@@ -34,7 +39,7 @@ public class Dronazon{
                 }
 
                 public void connectionLost(Throwable cause) {
-                    System.out.println(clientId + " Connection lost! cause:" + cause.getMessage());
+                    LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage());
                 }
 
                 public void deliveryComplete(IMqttDeliveryToken token) {
@@ -42,7 +47,7 @@ public class Dronazon{
                     // Delivery for a message is completed when all acknowledgments have been received
                     // When the callback returns from deliveryComplete to the main thread, the client removes the retained messages with QoS 1 or 2.
                     if (token.isComplete()) {
-                        System.out.println(clientId + " Message delivered - Thread PID: " + Thread.currentThread().getId());
+                        LOGGER.info(clientId + " Message delivered - Thread PID: " + Thread.currentThread().getId());
                     }
                 }
             });
@@ -55,7 +60,7 @@ public class Dronazon{
 
                 // Set the QoS on the Message
                 message.setQos(qos);
-                System.out.println(clientId + " Publishing message: " + message + " ...");
+                LOGGER.info(clientId + " Publishing message: " + message + " ...");
                 client.publish(topic, message);
                 //System.out.println(clientId + " Message published - Thread PID: " + Thread.currentThread().getId());
                 Thread.sleep(5000);
@@ -67,11 +72,11 @@ public class Dronazon{
             System.out.println("Publisher " + clientId + " disconnected - Thread PID: " + Thread.currentThread().getId());*/
 
         } catch (MqttException me) {
-            System.out.println("reason " + me.getReasonCode());
-            System.out.println("msg " + me.getMessage());
-            System.out.println("loc " + me.getLocalizedMessage());
-            System.out.println("cause " + me.getCause());
-            System.out.println("excep " + me);
+            LOGGER.info("reason " + me.getReasonCode());
+            LOGGER.info("msg " + me.getMessage());
+            LOGGER.info("loc " + me.getLocalizedMessage());
+            LOGGER.info("cause " + me.getCause());
+            LOGGER.info("excep " + me);
             me.printStackTrace();
         } catch (InterruptedException e){
             e.printStackTrace();

@@ -4,10 +4,14 @@ message SendInfoDrone{
   required int32 id=1;
   required int32 portaAscolto=2;
   required string indirizzoDrone=3;
-  required Position position=5;
+}
 
-  message Position{
-    required int32 x =1;
+message SendPositionToMaster{
+  required int32 id=1;
+  required Posizione pos=2;
+
+  message Posizione{
+    required int32 x=1;
     required int32 y=2;
   }
 }
@@ -16,12 +20,13 @@ message ackMessage{
   required string message=1;
 }
 
-message consegna{
-  required int32 id=1;
-  required Position puntoRitiro=2;
-  required Position puntoConsegna=3;
+message Consegna{
+  required int32 idConsegna=1;
+  required Posizione puntoRitiro=2;
+  required Posizione puntoConsegna=3;
+  required int32 idDrone = 4;
 
-  message Position{
+  message Posizione{
     required int32 x=1;
     required int32 y=2;
   }
@@ -43,7 +48,11 @@ service SendWhoIsMaster{
 }
 
 service SendConsegnaToDrone{
-  rpc sendConsegna(consegna) returns (ackMessage);
+  rpc sendConsegna(Consegna) returns (ackMessage);
+}
+
+service SendPositionToDroneMaster{
+  rpc sendPosition(SendPositionToMaster) returns (ackMessage);
 }
 
 

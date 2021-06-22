@@ -1,11 +1,12 @@
 package DronazonPackage;
 
 import REST.beans.Drone;
-import REST.beans.Posizione;
 import REST.beans.Statistic;
 import com.example.grpc.DronePresentationGrpc;
 import com.example.grpc.DronePresentationGrpc.*;
 import com.example.grpc.Message.*;
+import com.example.grpc.SendConsegnaToDroneGrpc;
+import com.example.grpc.SendPositionToDroneMasterGrpc;
 import com.example.grpc.SendWhoIsMasterGrpc;
 import com.example.grpc.SendWhoIsMasterGrpc.*;
 import com.google.gson.Gson;
@@ -17,6 +18,8 @@ import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
 import gRPCService.DronePresentationImpl;
+import gRPCService.SendConsegnaToDroneImpl;
+import gRPCService.SendPositionToDroneMasterImpl;
 import gRPCService.SendWhoIsMasterImpl;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -26,36 +29,36 @@ import io.grpc.stub.StreamObserver;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 import org.eclipse.paho.client.mqttv3.*;
 
+import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class DroneClient{
 
     private final static Random rnd = new Random();
-    private static Gson gson = new Gson();
+    private static final Gson gson = new Gson();
+    private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
 
     public static void main(String[] args) {
 
         try{
-
             int id = rnd.nextInt(10000);
             int portaAscolto = rnd.nextInt(100) + 8080;
-            String ip = "localhost";
 
-            Drone drone = new Drone(id, portaAscolto, ip);
+            Drone drone = new Drone(id, portaAscolto, "localhost");
 
             List<Drone> drones = addDroneServer(drone);
-
-            System.out.println("Porta:" + drone.getPortaAscolto());
+            drones = updatePositionDrone(drones, drone);
+            LOGGER.info("Porta:" + drone.getPortaAscolto());
             if (drones.size()==1){
-                System.out.println("ok");
-                //drones.get(drones.indexOf(findDrone(drones, drone))).setIsMaster(true);
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
             }
@@ -66,35 +69,72 @@ public class DroneClient{
             Server server = ServerBuilder.forPort(portaAscolto)
                     .addService(new DronePresentationImpl(drones))
                     .addService(new SendWhoIsMasterImpl(drones, drone))
+                    .addService(new SendPositionToDroneMasterImpl(drones))
+                    .addService(new SendConsegnaToDroneImpl())
                     .build();
             server.start();
-            System.out.println("server Started");
+            LOGGER.info("server Started");
 
 
             if (drone.getIsMaster()) {
-                System.out.println("Sono il primo master");
+                LOGGER.info("Sono il primo master");
                 subTopic("dronazon/smartcity/orders/", drones, drone);
             }
             else {
                 asynchronousSendDroneInformation(drone, drones);
                 asynchronousSendWhoIsMaster(drones, drone);
+                LOGGER.info("Il master è: " + drone.getDroneMaster().getId());
+                LOGGER.info("pos"+drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza());
+                asynchronousSendPositionToMaster(drone.getId(),
+                        drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza(),
+                        drone.getDroneMaster());
             }
 
             //start Thread in attesa di quit
             StopThread stop = new StopThread();
             stop.start();
-            synchronized (stop){
-                stop.wait();
-            }
         }catch (Exception e) {
             e.printStackTrace();
         }
     }
 
+    private static void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) throws InterruptedException {
+        /**
+         * mando la posizione al drone master
+         */
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+master.getPortaAscolto()).usePlaintext().build();
+        SendPositionToDroneMasterGrpc.SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
+
+        SendPositionToMaster.Posizione pos = SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
+
+        SendPositionToMaster position = SendPositionToMaster.newBuilder().setPos(pos).setId(id).build();
+
+        stub.sendPosition(position, new StreamObserver<ackMessage>() {
+            @Override
+            public void onNext(ackMessage value) {
+                LOGGER.info(value.getMessage());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                LOGGER.info("Error" + t.getMessage());
+                LOGGER.info("Error" + t.getCause());
+                LOGGER.info("Error" + t.getLocalizedMessage());
+                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(1, TimeUnit.SECONDS);
+    }
+
     private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) throws InterruptedException {
 
         Drone succ = takeDroneSuccessivo(drone, drones);
-        System.out.println("succ:"+succ.toString());
+        LOGGER.info("successivo:"+succ.toString());
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+ succ.getPortaAscolto()).usePlaintext().build();
 
         SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
@@ -108,10 +148,10 @@ public class DroneClient{
 
             @Override
             public void onError(Throwable t) {
-                System.out.println("Error" + t.getMessage());
-                System.out.println("Error" + t.getCause());
-                System.out.println("Error" + t.getLocalizedMessage());
-                System.out.println("Error" + Arrays.toString(t.getStackTrace()));
+                LOGGER.info("Error" + t.getMessage());
+                LOGGER.info("Error" + t.getCause());
+                LOGGER.info("Error" + t.getLocalizedMessage());
+                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
                 t.printStackTrace();
             }
 
@@ -146,7 +186,7 @@ public class DroneClient{
         public void run() {
             while (true) {
                 try {
-                    if (!!bf.readLine().equals("quit")) break;
+                    if (bf.readLine().equals("quit")) break;
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -170,24 +210,22 @@ public class DroneClient{
 
             DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
 
-            SendInfoDrone.Position position = SendInfoDrone.Position.newBuilder().setX(dron.getPosizionePartenza().getxPosizioneIniziale())
-                    .setY(dron.getPosizionePartenza().getyPosizioneIniziale()).build();
 
             SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
-                    .setIndirizzoDrone(drone.getIndirizzoIpDrone()).setPosition(position).build();
+                    .setIndirizzoDrone(drone.getIndirizzoIpDrone()).build();
 
             stub.presentation(info, new StreamObserver<ackMessage>() {
                 @Override
                 public void onNext(ackMessage value) {
-                    System.out.println(value.getMessage());
+                    LOGGER.info(value.getMessage());
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    System.out.println("Error" + t.getMessage());
-                    System.out.println("Error" + t.getCause());
-                    System.out.println("Error" + t.getLocalizedMessage());
-                    System.out.println("Error" + Arrays.toString(t.getStackTrace()));
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
                 }
 
                 @Override
@@ -215,26 +253,23 @@ public class DroneClient{
             client.setCallback(new MqttCallback() {
                 @Override
                 public void connectionLost(Throwable cause) {
-                    System.out.println(clientId + " Connectionlost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
+                    LOGGER.info(clientId + " Connectionlost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
                 }
-
 
                 @Override
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
                     String time = new Timestamp(System.currentTimeMillis()).toString();
                     String receivedMessage = new String(message.getPayload());
-                    System.out.println(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
+                    LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
                             "\n\tTime:    " + time +
                             "\n\tTopic:   " + topic +
                             "\n\tMessage: " + receivedMessage +
                             "\n\tQoS:     " + message.getQos() + "\n");
 
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
-                    //System.out.println(ordine.toString());
+                    LOGGER.info(ordine.toString());
 
-                    //Drone droneTarget =
-                    computeDroneCheDeveEffettuareLaConsegna(ordine, drones);
-                    //sendConsegnaAlDroneSuccessivo(receivedMessage, drones, drone);
+                    asynchronousSendConsegna(drones, ordine, drone);
                 }
 
                 @Override
@@ -243,44 +278,31 @@ public class DroneClient{
                 }
             });
 
-            System.out.println(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
+            LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
             client.subscribe(topic,qos);
-            System.out.println(clientId + " Subscribed to topics : " + topic);
+            LOGGER.info(clientId + " Subscribed to topics : " + topic);
 
         } catch (MqttException me) {
-            System.out.println("reason " + me.getReasonCode());
-            System.out.println("msg " + me.getMessage());
-            System.out.println("loc " + me.getLocalizedMessage());
-            System.out.println("cause " + me.getCause());
-            System.out.println("excep " + me);
+            LOGGER.info("reason " + me.getReasonCode());
+            LOGGER.info("msg " + me.getMessage());
+            LOGGER.info("loc " + me.getLocalizedMessage());
+            LOGGER.info("cause " + me.getCause());
+            LOGGER.info("excep " + me);
             me.printStackTrace();
 
         }
 
     }
 
-    private static int computeDistance(Drone drone, Posizione posizione){
+    private static void asynchronousSendConsegna(List<Drone> drones, Ordine ordine, Drone drone){
+        Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + d.getNextDrone().getPortaAscolto()).usePlaintext().build();
+
+        SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
+
+
 
     }
-
-
-    private static void computeDroneCheDeveEffettuareLaConsegna(Ordine ordine, List<Drone> drones){
-        Posizione puntoRitiro = ordine.getPuntoRitiro();
-        int distanza = 0;
-        for(Drone d : drones){
-            if (!d.isOccupato()){
-                distanza = computeDistance(d, puntoRitiro);
-            }
-        }
-    }
-
-    /*rivate static void sendConsegnaAlDroneSuccessivo(String receivedMessage, List<Drone> drones, Drone drone) {
-        Drone succ = takeDroneSuccessivo(drone, drones);
-        Drone target = computeDroneCheDeveEffettuareLaConsegna(receivedMessage, drones);
-
-
-
-    }*/
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
@@ -325,6 +347,12 @@ public class DroneClient{
         ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
 
         return response.getEntity(new GenericType<List<Drone>>() {});
+    }
+
+    public static List<Drone> updatePositionDrone(List<Drone> drones, Drone drone){
+        Random rnd = new Random();
+        drones.get(drones.indexOf(findDrone(drones, drone))).setPosizionePartenza(new Point(rnd.nextInt(10), rnd.nextInt(10)));
+        return drones;
     }
 
 }
