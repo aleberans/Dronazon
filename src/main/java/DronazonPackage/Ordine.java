@@ -16,6 +16,9 @@ public class Ordine{
         puntoConsegna = new Point(rnd.nextInt(10), rnd.nextInt(10));
     }
 
+    public int getId() {
+        return id;
+    }
 
     public Point getPuntoConsegna() {
         return puntoConsegna;

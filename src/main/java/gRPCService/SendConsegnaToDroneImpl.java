@@ -9,5 +9,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver){
 
+
     }
 }

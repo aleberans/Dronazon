@@ -46,6 +46,7 @@ public class DroneClient{
     private final static Random rnd = new Random();
     private static final Gson gson = new Gson();
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private static Queue<Ordine> ordini = new LinkedList<>();
 
     public static void main(String[] args) {
 
@@ -79,6 +80,7 @@ public class DroneClient{
             if (drone.getIsMaster()) {
                 LOGGER.info("Sono il primo master");
                 subTopic("dronazon/smartcity/orders/", drones, drone);
+                //asynchronousSendConsegna(drones, ordini, drone);
             }
             else {
                 asynchronousSendDroneInformation(drone, drones);
@@ -269,7 +271,8 @@ public class DroneClient{
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
                     LOGGER.info(ordine.toString());
 
-                    asynchronousSendConsegna(drones, ordine, drone);
+                    ordini.add(ordine);
+                    LOGGER.info("ordini:" + ordini.toString());
                 }
 
                 @Override
@@ -294,20 +297,72 @@ public class DroneClient{
 
     }
 
-    private static void asynchronousSendConsegna(List<Drone> drones, Ordine ordine, Drone drone){
+    private static void asynchronousSendConsegna(List<Drone> drones, Queue<Ordine> ordini, Drone drone) throws InterruptedException {
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
+
+        Ordine ordine = ordini.poll();
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + d.getNextDrone().getPortaAscolto()).usePlaintext().build();
 
         SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
+        Consegna.Posizione posizioneRitiro = Consegna.Posizione.newBuilder()
+                .setX(ordine.getPuntoRitiro().x)
+                .setY(ordine.getPuntoRitiro().y).build();
 
+        Consegna.Posizione posizioneConsegna = Consegna.Posizione.newBuilder()
+                .setX(ordine.getPuntoConsegna().x)
+                .setY(ordine.getPuntoConsegna().y).build();
+
+        /*Drone droneACuiConsegnare = findDroneToConsegnare(drones,
+                ordine.getPuntoRitiro().x,
+                ordine.getPuntoRitiro().y);*/
+
+        Consegna consegna = Consegna.newBuilder().setIdConsegna(ordine.getId())
+                .setPuntoRitiro(posizioneRitiro)
+                .setPuntoConsegna(posizioneConsegna)
+                .setIdDrone(5753)
+                .build();
+
+        LOGGER.info("consegna:" + consegna);
+
+        stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
+            @Override
+            public void onNext(ackMessage value) {
+                LOGGER.info(value.getMessage());
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                LOGGER.info("Error" + t.getMessage());
+                LOGGER.info("Error" + t.getCause());
+                LOGGER.info("Error" + t.getLocalizedMessage());
+                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(1, TimeUnit.SECONDS);
 
     }
 
+    /*private static Drone findDroneToConsegnare(List<Drone> drones, int x, int y) {
+        double distance = 100;
+        for (Drone d: drones){
+            if (!d.isOccupato()){
+                if (Point.distance(x, y, d.getPosizionePartenza().x, d.getPosizionePartenza().y) < 100)
+                    distance = Point.distance(x, y, d.getPosizionePartenza().x, d.getPosizionePartenza().y);
+
+
+            }
+        }
+    }*/
+
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
-        Drone succ = drones.get( (pos+1)%drones.size());
-        return succ;
+        return drones.get( (pos+1)%drones.size());
     }
 
     /*private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {
