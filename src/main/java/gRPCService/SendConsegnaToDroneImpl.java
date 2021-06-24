@@ -27,13 +27,13 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         this.drone = drone;
     }
 
+
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver) {
 
         if (consegna.getIdDrone() == drone.getId()){
             try {
                 faiConsegna(consegna);
-
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -79,6 +79,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void faiConsegna(Consegna consegna) throws InterruptedException {
         //sendStatistics();
         Thread.sleep(5000);
+        LOGGER.info("CONSEGNA EFFETTUATA");
     }
 
     public static Drone findDrone(List<Drone> drones, Drone drone){

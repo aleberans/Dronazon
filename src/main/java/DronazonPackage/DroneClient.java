@@ -47,6 +47,7 @@ public class DroneClient{
     private static final Gson gson = new Gson();
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
     private static final QueueOrdini queueOrdini = new QueueOrdini();
+    private static final String LOCALHOST = "localhost";
 
     public static void main(String[] args) {
 
@@ -54,7 +55,7 @@ public class DroneClient{
             int id = rnd.nextInt(10000);
             int portaAscolto = rnd.nextInt(100) + 8080;
 
-            Drone drone = new Drone(id, portaAscolto, "localhost");
+            Drone drone = new Drone(id, portaAscolto, LOCALHOST);
 
             List<Drone> drones = addDroneServer(drone);
             drones = updatePositionDrone(drones, drone);
@@ -85,8 +86,8 @@ public class DroneClient{
             else {
                 asynchronousSendDroneInformation(drone, drones);
                 asynchronousSendWhoIsMaster(drones, drone);
-                LOGGER.info("Il master è: " + drone.getDroneMaster().getId());
-                LOGGER.info("pos"+drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza());
+                //LOGGER.info("Il master è: " + drone.getDroneMaster().getId());
+                //LOGGER.info("pos"+drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza());
                 asynchronousSendPositionToMaster(drone.getId(),
                         drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza(),
                         drone.getDroneMaster());
@@ -116,7 +117,7 @@ public class DroneClient{
         /**
          * mando la posizione al drone master
          */
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+master.getPortaAscolto()).usePlaintext().build();
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
         SendPositionToDroneMasterGrpc.SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
 
         SendPositionToMaster.Posizione pos = SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
@@ -148,8 +149,8 @@ public class DroneClient{
     private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) throws InterruptedException {
 
         Drone succ = takeDroneSuccessivo(drone, drones);
-        LOGGER.info("successivo:"+succ.toString());
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+ succ.getPortaAscolto()).usePlaintext().build();
+        //LOGGER.info("successivo:"+succ.toString());
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 
         SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
 
@@ -207,7 +208,7 @@ public class DroneClient{
 
             }
             System.exit(0);
-            System.out.println("Il drone è uscito dalla rete in maniera forzata!");
+            LOGGER.info("Il drone è uscito dalla rete in maniera forzata!");
         }
     }
 
@@ -220,7 +221,7 @@ public class DroneClient{
 
         //mando a tutti le informazioni dei parametri del drone
         for (Drone dron: pulito){
-            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + dron.getPortaAscolto()).usePlaintext().build();
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":" + dron.getPortaAscolto()).usePlaintext().build();
 
             DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
 
@@ -283,7 +284,7 @@ public class DroneClient{
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
 
                     queueOrdini.add(ordine);
-                    LOGGER.info("ordini:" + queueOrdini);
+                    //LOGGER.info("ordini:" + queueOrdini);
                 }
 
                 @Override
@@ -363,53 +364,70 @@ public class DroneClient{
 
     }
 
+    /**
+     * Calcolo il drone più vicino al punto di ritiro della consegna
+     * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
+     * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
+     */
     private static Drone findDroneToConsegnare(List<Drone> drones, Ordine ordine){
-        /**
-         * Calcolo il drone più vicino al punto di ritiro della consegna
-         * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
-         * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
-         */
         double distanceMin = 100;
         int count = 0;
         Drone droneVicino = null;
+        ArrayList<Drone> droniDistantiUguale = new ArrayList<>();
+        int batteriaResidua=100;
+        ArrayList<Drone> droniDistantieBatteriaUguale = new ArrayList<>();
+
         for (Drone d: drones){
             if (!d.isOccupato()){
-                if (Point.distance(d.getPosizionePartenza().x, d.getPosizionePartenza().y,
-                        ordine.getPuntoRitiro().x, ordine.getPuntoRitiro().y) <= distanceMin){
-                    distanceMin = Point.distance(d.getPosizionePartenza().x, d.getPosizionePartenza().y,
-                            ordine.getPuntoRitiro().x, ordine.getPuntoRitiro().y);
+                if (computeDistance(d, ordine) == distanceMin){
+                    count++;
+                    droniDistantiUguale.add(d);
+                }
+                else if(computeDistance(d, ordine) < distanceMin){
+                    distanceMin = computeDistance(d, ordine);
                     droneVicino = d;
+                    count=0;
                 }
             }
         }
-        return droneVicino;
-    }
-
-    /*private static Drone findDroneToConsegnare(List<Drone> drones, int x, int y) {
-        double distance = 100;
-        for (Drone d: drones){
-            if (!d.isOccupato()){
-                if (Point.distance(x, y, d.getPosizionePartenza().x, d.getPosizionePartenza().y) < 100)
-                    distance = Point.distance(x, y, d.getPosizionePartenza().x, d.getPosizionePartenza().y);
-
-
+        if (count==0)
+            return droneVicino;
+        else{
+            int count2 = 0;
+            for (Drone d: droniDistantiUguale){
+                if (d.getBatteria() < batteriaResidua){
+                    batteriaResidua = d.getBatteria();
+                    droneVicino = d;
+                    count2 =0;
+                }
+                else if (d.getBatteria() == batteriaResidua){
+                    count2++;
+                    droniDistantieBatteriaUguale.add(d);
+                }
+            }
+            if (count2 == 0){
+                return droneVicino;
+            }
+            else{
+                int id = 0;
+                for (Drone d: droniDistantieBatteriaUguale){
+                    if (d.getId() > id)
+                        id = d.getId();
+                }
+                return drones.get(drones.indexOf(takeDroneFromId(drones, id)));
             }
         }
-    }*/
+    }
+
+    private static double computeDistance(Drone drone, Ordine ordine){
+        return Math.sqrt( ( (ordine.getPuntoRitiro().x - drone.getPosizionePartenza().x)^2)
+                + ( ordine.getPuntoRitiro().y - drone.getPosizionePartenza().y)^2);
+    }
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
         return drones.get( (pos+1)%drones.size());
     }
-
-    /*private static void ringUpdateNextDrone(Drone drone, List<Drone> drones) {
-        drone.setNextDrone(drones.get(0));
-
-        for(Drone d: drones){
-            if (d.getNextDrone() == drones.get(0))
-                d.setNextDrone(drone);
-        }
-    }*/
 
     public static String sendStatistics(){
         Client client = Client.create();
