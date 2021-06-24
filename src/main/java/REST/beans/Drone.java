@@ -14,7 +14,6 @@ public class Drone {
     private int portaAscolto;
     private String indirizzoIpDrone;
     @JsonIgnore private Point posizionePartenza;
-    @JsonIgnore private Drone nextDrone;
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
@@ -42,14 +41,6 @@ public class Drone {
     }
     public Point getPosizionePartenza() {
         return this.posizionePartenza;
-    }
-
-    public Drone getNextDrone() {
-        return nextDrone;
-    }
-
-    public void setNextDrone(Drone nextDrone) {
-        this.nextDrone = nextDrone;
     }
 
     public boolean getIsMaster() {
@@ -83,7 +74,6 @@ public class Drone {
                 ", portaAscolto=" + portaAscolto +
                 ", indirizzoIpDrone='" + indirizzoIpDrone + '\'' +
                 ", posizionePartenza=" + posizionePartenza +
-                ", nextDrone=" + nextDrone +
                 ", isMaster=" + isMaster +
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +

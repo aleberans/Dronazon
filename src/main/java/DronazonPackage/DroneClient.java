@@ -46,7 +46,7 @@ public class DroneClient{
     private final static Random rnd = new Random();
     private static final Gson gson = new Gson();
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
-    private static Queue<Ordine> ordini = new LinkedList<>();
+    private static final QueueOrdini queueOrdini = new QueueOrdini();
 
     public static void main(String[] args) {
 
@@ -71,7 +71,7 @@ public class DroneClient{
                     .addService(new DronePresentationImpl(drones))
                     .addService(new SendWhoIsMasterImpl(drones, drone))
                     .addService(new SendPositionToDroneMasterImpl(drones))
-                    .addService(new SendConsegnaToDroneImpl())
+                    .addService(new SendConsegnaToDroneImpl(drones, drone))
                     .build();
             server.start();
             LOGGER.info("server Started");
@@ -80,7 +80,7 @@ public class DroneClient{
             if (drone.getIsMaster()) {
                 LOGGER.info("Sono il primo master");
                 subTopic("dronazon/smartcity/orders/", drones, drone);
-                //asynchronousSendConsegna(drones, ordini, drone);
+                asynchronousSendConsegna(drones, drone);
             }
             else {
                 asynchronousSendDroneInformation(drone, drones);
@@ -98,6 +98,18 @@ public class DroneClient{
         }catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean droniDisponibili(List<Drone> drones){
+        boolean disponibilita = false;
+        for (Drone d: drones){
+            if (!d.isOccupato()) {
+                disponibilita = true;
+                break;
+            }
+        }
+        notify();
+        return disponibilita;
     }
 
     private static void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) throws InterruptedException {
@@ -255,7 +267,7 @@ public class DroneClient{
             client.setCallback(new MqttCallback() {
                 @Override
                 public void connectionLost(Throwable cause) {
-                    LOGGER.info(clientId + " Connectionlost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
+                    LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
                 }
 
                 @Override
@@ -269,10 +281,9 @@ public class DroneClient{
                             "\n\tQoS:     " + message.getQos() + "\n");
 
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
-                    LOGGER.info(ordine.toString());
 
-                    ordini.add(ordine);
-                    LOGGER.info("ordini:" + ordini.toString());
+                    queueOrdini.add(ordine);
+                    LOGGER.info("ordini:" + queueOrdini);
                 }
 
                 @Override
@@ -297,11 +308,11 @@ public class DroneClient{
 
     }
 
-    private static void asynchronousSendConsegna(List<Drone> drones, Queue<Ordine> ordini, Drone drone) throws InterruptedException {
+    private static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
 
-        Ordine ordine = ordini.poll();
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + d.getNextDrone().getPortaAscolto()).usePlaintext().build();
+        Ordine ordine = DroneClient.queueOrdini.consume();
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
         SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
@@ -313,15 +324,19 @@ public class DroneClient{
                 .setX(ordine.getPuntoConsegna().x)
                 .setY(ordine.getPuntoConsegna().y).build();
 
-        /*Drone droneACuiConsegnare = findDroneToConsegnare(drones,
-                ordine.getPuntoRitiro().x,
-                ordine.getPuntoRitiro().y);*/
+        Drone droneACuiConsegnare = findDroneToConsegnare(drones,
+                ordine);
 
-        Consegna consegna = Consegna.newBuilder().setIdConsegna(ordine.getId())
+        Consegna consegna = Consegna.newBuilder()
+                .setIdConsegna(ordine.getId())
                 .setPuntoRitiro(posizioneRitiro)
                 .setPuntoConsegna(posizioneConsegna)
-                .setIdDrone(5753)
+                .setIdDrone(droneACuiConsegnare.getId())
                 .build();
+
+        //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+        drones.get(drones.indexOf(findDrone(drones, droneACuiConsegnare))).setOccupato(true);
+
 
         LOGGER.info("consegna:" + consegna);
 
@@ -346,6 +361,28 @@ public class DroneClient{
         });
         channel.awaitTermination(1, TimeUnit.SECONDS);
 
+    }
+
+    private static Drone findDroneToConsegnare(List<Drone> drones, Ordine ordine){
+        /**
+         * Calcolo il drone più vicino al punto di ritiro della consegna
+         * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
+         * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
+         */
+        double distanceMin = 100;
+        int count = 0;
+        Drone droneVicino = null;
+        for (Drone d: drones){
+            if (!d.isOccupato()){
+                if (Point.distance(d.getPosizionePartenza().x, d.getPosizionePartenza().y,
+                        ordine.getPuntoRitiro().x, ordine.getPuntoRitiro().y) <= distanceMin){
+                    distanceMin = Point.distance(d.getPosizionePartenza().x, d.getPosizionePartenza().y,
+                            ordine.getPuntoRitiro().x, ordine.getPuntoRitiro().y);
+                    droneVicino = d;
+                }
+            }
+        }
+        return droneVicino;
     }
 
     /*private static Drone findDroneToConsegnare(List<Drone> drones, int x, int y) {
