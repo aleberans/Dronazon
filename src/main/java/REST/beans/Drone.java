@@ -77,6 +77,7 @@ public class Drone {
                 ", isMaster=" + isMaster +
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
+                ", isOccupato=" + isOccupato +
                 '}';
     }
 

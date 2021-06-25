@@ -39,6 +39,19 @@ message WhoIsMaster{
   required int32 idMaster=1;
 }
 
+message SendStat{
+  required Posizione posizioneArrivo=1;
+  required double kmPercorsi=2;
+  required int32 betteriaResidua=3;
+  required string timestampArrivo=4;
+  required int32 idDrone=5;
+
+  message Posizione{
+    required int32 x=1;
+    required int32 y=2;
+  }
+}
+
 service DronePresentation{
   rpc presentation(SendInfoDrone) returns (ackMessage);
 }
@@ -53,6 +66,10 @@ service SendConsegnaToDrone{
 
 service SendPositionToDroneMaster{
   rpc sendPosition(SendPositionToMaster) returns (ackMessage);
+}
+
+service SendInfoAfterConsegna{
+  rpc sendInfoDopoConsegna(SendStat) returns (ackMessage);
 }
 
 
