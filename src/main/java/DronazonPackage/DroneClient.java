@@ -396,6 +396,17 @@ public class DroneClient{
 
     }
 
+    private static boolean thereIsDroneLibero(List<Drone> drones){
+        for(Drone d: drones){
+            LOGGER.info(d.toString());
+            if (!d.isOccupato()) {
+                LOGGER.info("TROVATO DRONE");
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static Drone funcSamu(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
         Drone drone = null;
@@ -408,9 +419,11 @@ public class DroneClient{
             }
         }
 
-        if (lista.isEmpty()){
+        if (!thereIsDroneLibero(drones)){
+            LOGGER.info("In Wait");
             synchronized (sync){
                 sync.wait();
+                LOGGER.info("SVEGLIATO");
             }
             LOGGER.info("LISTAAAAA: "+ drones);
             for (Drone d: drones){
@@ -490,33 +503,6 @@ public class DroneClient{
                         id = d.getId();
                 }
                 return drones.get(drones.indexOf(takeDroneFromId(drones, id)));
-            }
-        }
-    }
-
-    private static boolean thereIsDroneLiberoPerConsegnare(List<Drone> droni){
-        boolean thereIsDroneLibero = false;
-        for (Drone d: droni){
-            if (!d.isOccupato()) {
-                thereIsDroneLibero = true;
-                break;
-            }
-        }
-        return thereIsDroneLibero;
-    }
-
-    private static Drone test(List<Drone> drones, Ordine ordine) throws InterruptedException {
-        double distanza = 100;
-        Drone drone = null;
-
-        while(true) {
-            if (thereIsDroneLiberoPerConsegnare(drones)) {
-
-            } else {
-                LOGGER.info("I DRONI SONO TUTTI OCCUPATI, ASPETTO");
-                synchronized (sync) {
-                    sync.wait();
-                }
             }
         }
     }
