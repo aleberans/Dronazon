@@ -359,7 +359,7 @@ public class DroneClient{
                 .setY(ordine.getPuntoConsegna().y)
                 .build();
 
-        Drone droneACuiConsegnare = funcSamu(drones, ordine);
+        Drone droneACuiConsegnare = findDroneToConsegna(drones, ordine);
 
         Consegna consegna = Consegna.newBuilder()
                 .setIdConsegna(ordine.getId())
@@ -407,17 +407,11 @@ public class DroneClient{
         return false;
     }
 
-    private static Drone funcSamu(List<Drone> drones, Ordine ordine) throws InterruptedException {
+    private static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
         Drone drone = null;
         ArrayList<Drone> lista = new ArrayList<>();
         ArrayList<Pair<Drone, Double>> coppie = new ArrayList<>();
-
-        for (Drone d: drones){
-            if (!d.isOccupato()){
-                lista.add(d);
-            }
-        }
 
         if (!thereIsDroneLibero(drones)){
             LOGGER.info("In Wait");
@@ -425,18 +419,16 @@ public class DroneClient{
                 sync.wait();
                 LOGGER.info("SVEGLIATO");
             }
-            LOGGER.info("LISTAAAAA: "+ drones);
-            for (Drone d: drones){
-                if (!d.isOccupato()){
-                    lista.add(d);
-                }
+        }
+        for (Drone d: drones){
+            if (!d.isOccupato()){
+                lista.add(d);
             }
         }
 
         for (Drone d: lista){
                 coppie.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
             }
-        LOGGER.info("COPPIE"+coppie);
 
         Optional<Pair<Drone, Double>> droneMinDistance = coppie.stream()
                     .min(Comparator.comparing(Pair::getValue));
@@ -452,65 +444,6 @@ public class DroneClient{
      * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
      * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
      */
-    private static Drone findDroneToConsegnare(List<Drone> drones, Ordine ordine) throws InterruptedException {
-        double distanceMin = 100;
-        int count = 0;
-        Drone droneVicino = null;
-        ArrayList<Drone> droniDistantiUguale = new ArrayList<>();
-        int batteriaResidua=100;
-        ArrayList<Drone> droniDistantieBatteriaUguale = new ArrayList<>();
-
-        for (Drone d: drones){
-            if (!d.isOccupato()) {
-                LOGGER.info("TROVATO DRONE NON OCCUPATO");
-                if (computeDistance(d, ordine) == distanceMin) {
-                    count++;
-                    droniDistantiUguale.add(d);
-                } else if (computeDistance(d, ordine) < distanceMin) {
-                    distanceMin = computeDistance(d, ordine);
-                    droneVicino = d;
-                    count = 0;
-                }
-            }else{
-                LOGGER.info("I DRONI SONO TUTTI OCCUPATI, ASPETTO");
-                synchronized (sync){
-                    sync.wait();
-                }
-            }
-        }
-        if (count==0)
-            return droneVicino;
-        else{
-            int count2 = 0;
-            for (Drone d: droniDistantiUguale){
-                if (d.getBatteria() < batteriaResidua){
-                    batteriaResidua = d.getBatteria();
-                    droneVicino = d;
-                    count2 =0;
-                }
-                else if (d.getBatteria() == batteriaResidua){
-                    count2++;
-                    droniDistantieBatteriaUguale.add(d);
-                }
-            }
-            if (count2 == 0){
-                return droneVicino;
-            }
-            else{
-                int id = 0;
-                for (Drone d: droniDistantieBatteriaUguale){
-                    if (d.getId() > id)
-                        id = d.getId();
-                }
-                return drones.get(drones.indexOf(takeDroneFromId(drones, id)));
-            }
-        }
-    }
-
-    private static double computeDistance(Drone drone, Ordine ordine){
-        return Math.sqrt( ( (ordine.getPuntoRitiro().x - drone.getPosizionePartenza().x)^2)
-                + ( ordine.getPuntoRitiro().y - drone.getPosizionePartenza().y)^2);
-    }
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
