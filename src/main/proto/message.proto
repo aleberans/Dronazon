@@ -20,6 +20,7 @@ message ackMessage{
   required string message=1;
 }
 
+
 message Consegna{
   required int32 idConsegna=1;
   required Posizione puntoRitiro=2;
@@ -70,6 +71,12 @@ service SendPositionToDroneMaster{
 
 service SendInfoAfterConsegna{
   rpc sendInfoDopoConsegna(SendStat) returns (ackMessage);
+}
+
+message PingMessage{}
+
+service PingAlive{
+  rpc ping(PingMessage) returns (PingMessage);
 }
 
 

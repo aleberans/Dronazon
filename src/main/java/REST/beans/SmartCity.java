@@ -51,10 +51,16 @@ public class SmartCity {
         return smartCity;
     }
 
-    public synchronized void deleteDrone(Drone drone){
+    public synchronized void deleteDrone(int idDrone){
+        Drone drone = null;
+        for (Drone d: smartCity){
+            if (d.getId() == idDrone)
+                drone = d;
+        }
         if (!checkEqualId(drone))
             throw new IllegalArgumentException("Il drone che si vuole eliminare non esiste!");
-        smartCity.remove(drone);}
+        smartCity.remove(drone);
+    }
 
     public boolean checkEqualId(Drone drone){
         boolean sem = false;

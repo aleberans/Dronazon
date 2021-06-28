@@ -40,7 +40,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             sync.notify();
         }
 
-        //aggiorno la batteria residura del drone che ha effettuato la consegna nella lista
+        //aggiorno la batteria residua del drone che ha effettuato la consegna nella lista
         getDrone(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
 
         //aggiorno la posizione del drone nella lista di droni

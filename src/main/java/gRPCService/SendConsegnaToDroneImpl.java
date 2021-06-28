@@ -1,14 +1,20 @@
 package gRPCService;
 
-import DronazonPackage.DroneClient;
 import REST.beans.Drone;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
+import com.sun.jersey.api.client.Client;
+import com.sun.jersey.api.client.ClientResponse;
+import com.sun.jersey.api.client.WebResource;
+import com.sun.jersey.api.client.config.ClientConfig;
+import com.sun.jersey.api.client.config.DefaultClientConfig;
+import com.sun.jersey.api.json.JSONConfiguration;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 
 import java.awt.*;
 import java.sql.Timestamp;
@@ -22,7 +28,7 @@ import java.util.logging.Logger;
 public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private static final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
-    private final List<Drone> drones;
+    private List<Drone> drones;
     private final Drone drone;
     private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -107,8 +113,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
-
-
         Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
         Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
@@ -116,17 +120,21 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("POSIZIONE DRONE INIZIALE" + posizioneInizialeDrone);
         LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
         LOGGER.info("POSIZIONE CONSEGNA" + posizioneConsegna);
+        LOGGER.info("KM PERCORSI" + posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
+        LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());
 
-        double kmPercorsi = posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
-        LOGGER.info("KM PERCORSI" + kmPercorsi);
 
         SendStat stat = SendStat.newBuilder()
                 .setIdDrone(drone.getId())
                 .setTimestampArrivo(sdf3.format(timestamp))
-                .setKmPercorsi(kmPercorsi)
-                .setBetteriaResidua(50)
+                .setKmPercorsi(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna))
+                .setBetteriaResidua(drone.getBatteria())
                 .setPosizioneArrivo(pos)
                 .build();
+
+        if (drone.getBatteria() < 15) {
+            softQuitFromRing(drone, drones);
+        }
 
         stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
             @Override
@@ -150,7 +158,24 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         channel.awaitTermination(10, TimeUnit.SECONDS);
     }
 
-    public static Drone findDrone(List<Drone> drones, Drone drone){
+    private static void softQuitFromRing(Drone drone, List<Drone> drones){
+        if (!drone.getIsMaster()) {
+            removeDroneServer(drone);
+            updateRingAfterSimpleDroneQuit(drone, drones);
+        }
+        else{
+            removeDroneServer(drone);
+        }
+    }
+
+    private static void updateRingAfterSimpleDroneQuit(Drone drone, List<Drone> drones) {
+        LOGGER.info("PRIMA DI AGGIORNARE"+drones.toString());
+        drones.remove(drone);
+        LOGGER.info("UPDATE ANELLO");
+        LOGGER.info(drones.toString());
+    }
+
+    private static Drone findDrone(List<Drone> drones, Drone drone){
 
         for (Drone d: drones){
             if (d.getId() == drone.getId())
@@ -164,5 +189,18 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         return drones.get( (pos+1)%drones.size());
     }
 
+    private static void removeDroneServer(Drone drone){
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
 
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
+
+        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
+
+        if (response.getStatus() != 200){
+            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package REST.services;
 
+import DronazonPackage.DroneClient;
 import REST.beans.Drone;
 import REST.beans.SmartCity;
 
@@ -8,6 +9,8 @@ import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.List;
+import java.util.logging.Logger;
+
 
 @Path("smartcity")
 public class SmartCityService {
@@ -28,10 +31,11 @@ public class SmartCityService {
         return Response.ok(entity).build();
     }
 
+    @Path("remove/{idDrone}")
     @DELETE
     @Consumes({"application/json"})
-    public Response deleteDrone(Drone drone){
-        SmartCity.getInstance().deleteDrone(drone);
+    public Response deleteDrone(@PathParam("idDrone") int idDrone){
+        SmartCity.getInstance().deleteDrone(idDrone);
         return Response.ok().build();
     }
 }

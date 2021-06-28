@@ -2,12 +2,9 @@ package DronazonPackage;
 
 import REST.beans.Drone;
 import REST.beans.Statistic;
-import com.example.grpc.DronePresentationGrpc;
+import com.example.grpc.*;
 import com.example.grpc.DronePresentationGrpc.*;
 import com.example.grpc.Message.*;
-import com.example.grpc.SendConsegnaToDroneGrpc;
-import com.example.grpc.SendPositionToDroneMasterGrpc;
-import com.example.grpc.SendWhoIsMasterGrpc;
 import com.example.grpc.SendWhoIsMasterGrpc.*;
 import com.google.gson.Gson;
 import com.sun.jersey.api.client.Client;
@@ -76,6 +73,7 @@ public class DroneClient{
                     .addService(new SendPositionToDroneMasterImpl(drones))
                     .addService(new SendConsegnaToDroneImpl(drones, drone))
                     .addService(new SendInfoAfterConsegnaImpl(drones, arrayKmPercorsi, sync))
+                    .addService(new PingAliveImpl())
                     .build();
             server.start();
             }catch (BindException b){
@@ -102,12 +100,79 @@ public class DroneClient{
                         drone.getDroneMaster());
             }
 
+            PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
+            pingeResultThread.start();
+
             //start Thread in attesa di quit
-            StopThread stop = new StopThread();
+            StopThread stop = new StopThread(drone);
             stop.start();
         }catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    static class PingeResultThread extends Thread{
+
+        private final List<Drone> drones;
+        private final Drone drone;
+
+        public PingeResultThread(List<Drone> drones, Drone drone) {
+            this.drones = drones;
+            this.drone = drone;
+        }
+
+        @Override
+        public void run(){
+            while(true){
+                try {
+                    LOGGER.info("ANELLO AGGIORNATO");
+                    asynchronousPingAlive(drone, drones);
+                    Thread.sleep(10000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    /**
+     * @param drone
+     * @param drones
+     * Pinga il drone successivo nell'anello e nel caso in cui ritorni nella onError lo rimuove dalla sua lista locale
+     */
+    private static void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
+
+        Drone successivo = takeDroneSuccessivo(drone, drones);
+
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
+        PingAliveGrpc.PingAliveStub stub = PingAliveGrpc.newStub(channel);
+
+        PingMessage pingMessage = PingMessage.newBuilder().build();
+
+        stub.ping(pingMessage, new StreamObserver<PingMessage>() {
+            @Override
+            public void onNext(PingMessage value) {
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                drones.remove(successivo);
+                LOGGER.info("IL DRONE SUCCESSIVO È MORTO"+drones);
+                try {
+                    asynchronousPingAlive(drone, drones);
+                    channel.shutdown();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onCompleted() {
+                channel.shutdown();
+            }
+        });
+        channel.awaitTermination(10, TimeUnit.SECONDS);
+
     }
 
     /**
@@ -194,12 +259,23 @@ public class DroneClient{
     }
 
     static class StopThread extends Thread{
+
+        private final Drone drone;
+
+        public StopThread(Drone drone){
+            this.drone = drone;
+        }
+
         BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
         @Override
         public void run() {
             while (true) {
                 try {
-                    if (bf.readLine().equals("quit")) break;
+                    if (bf.readLine().equals("quit")){
+                        removeDroneServer(drone);
+                        break;
+                    }
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -387,9 +463,13 @@ public class DroneClient{
 
     }
 
+    /**
+     * @param drones
+     * @return
+     * Scorre la lista dei droni e trova se c'è almeno un drone libero di effettuare una cosegna
+     */
     private static boolean thereIsDroneLibero(List<Drone> drones){
         for(Drone d: drones){
-            LOGGER.info(d.toString());
             if (!d.isOccupato()) {
                 LOGGER.info("TROVATO DRONE");
                 return true;
@@ -398,15 +478,40 @@ public class DroneClient{
         return false;
     }
 
-    //TO DO OTHER
+    /*private static void test(List<Drone> drones, Ordine ordine) throws InterruptedException {
+        ArrayList<Drone> lista = new ArrayList<>();
+
+        if (!thereIsDroneLibero(drones)){
+            LOGGER.info("IN WAIT");
+            synchronized (sync){
+                sync.wait();
+                LOGGER.info("SVEGLIATO");
+            }
+        }
+        for (Drone d: drones){
+            if (!d.isOccupato()){
+                lista.add(d);
+            }
+        }
+        lista.stream().
+    }*/
+
+
+    /**
+     * Calcolo il drone più vicino al punto di ritiro della consegna
+     * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
+     * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
+     */
     private static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
         Drone drone = null;
         ArrayList<Drone> lista = new ArrayList<>();
-        ArrayList<Pair<Drone, Double>> coppie = new ArrayList<>();
+        ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
+        ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
+        ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
 
         if (!thereIsDroneLibero(drones)){
-            LOGGER.info("In Wait");
+            LOGGER.info("IN WAIT");
             synchronized (sync){
                 sync.wait();
                 LOGGER.info("SVEGLIATO");
@@ -418,24 +523,38 @@ public class DroneClient{
             }
         }
 
+        //creo le varie liste
         for (Drone d: lista){
-                coppie.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
+                coppieDistanza.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
+                coppieBatteria.add(new Pair<>(d, d.getBatteria()));
+                coppieIdMaggiore.add(new Pair<>(d, d.getId()));
             }
 
-        Optional<Pair<Drone, Double>> droneMinDistance = coppie.stream()
+        Optional<Pair<Drone, Double>> droneMinDistance = coppieDistanza.stream()
                     .min(Comparator.comparing(Pair::getValue));
-        Pair<Drone, Double> droneee = droneMinDistance.orElse(null);
-        assert droneee != null;
-        LOGGER.info("COPPIE"+coppie);
-        drone =  droneee.getKey();
-        return drone;
+
+        Optional<Pair<Drone, Integer>> droneMaxBatteria = coppieBatteria.stream()
+                .max(Comparator.comparing(Pair::getValue));
+
+        int count = 0;
+        for (Pair p: coppieDistanza){
+            if (p.getValue() == droneMinDistance)
+                count++;
+        }
+
+        // c'è solo un drone con distanza minima
+        if (count==1) {
+            Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
+            drone = droneDistanzaMinima.getKey();
+            return drone;
+        }
+        else{
+            Pair<Drone, Integer> droneBatteriaMassima = droneMaxBatteria.orElse(null);
+            drone = droneBatteriaMassima.getKey();
+            return drone;
+        }
     }
 
-    /**
-     * Calcolo il drone più vicino al punto di ritiro della consegna
-     * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
-     * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
-     */
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
         return drones.get( (pos+1)%drones.size());
@@ -492,4 +611,39 @@ public class DroneClient{
         return drones;
     }
 
+    private static void softQuitFromRing(Drone drone, List<Drone> drones){
+        if (!drone.getIsMaster()) {
+            removeDroneServer(drone);
+            updateRingAfterSimpleDroneQuit(drone, drones);
+        }
+        else{
+            removeDroneServer(drone);
+        }
+    }
+
+    /**
+     * @param drone
+     * Rimuove il drone dal server a seguito della "quit"
+     */
+    private static void removeDroneServer(Drone drone){
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
+
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
+
+        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
+
+        if (response.getStatus() != 200){
+            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
+        }
+    }
+
+    private static void updateRingAfterSimpleDroneQuit(Drone drone, List<Drone> drones) {
+        LOGGER.info("PRIMA DI AGGIORNARE"+drones.toString());
+        drones.remove(drone);
+        LOGGER.info("UPDATE ANELLO");
+        LOGGER.info(drones.toString());
+    }
 }
