@@ -60,7 +60,7 @@ public class DroneClient{
 
             List<Drone> drones = addDroneServer(drone);
             drones = updatePositionDrone(drones, drone);
-            LOGGER.info("Porta:" + drone.getPortaAscolto());
+            LOGGER.info("POSIZIONE INZIALE MAIN:" + drone.getPosizionePartenza());
             if (drones.size()==1){
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
@@ -81,7 +81,7 @@ public class DroneClient{
             }catch (BindException b){
                 drone.setPortaAscolto(rnd.nextInt(100) + 8080);
             }
-            LOGGER.info("server Started");
+            //LOGGER.info("server Started");
 
 
             if (drone.getIsMaster()) {
@@ -108,18 +108,6 @@ public class DroneClient{
         }catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public boolean droniDisponibili(List<Drone> drones){
-        boolean disponibilita = false;
-        for (Drone d: drones){
-            if (!d.isOccupato()) {
-                disponibilita = true;
-                break;
-            }
-        }
-        notify();
-        return disponibilita;
     }
 
     /**
@@ -307,11 +295,11 @@ public class DroneClient{
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
                     String time = new Timestamp(System.currentTimeMillis()).toString();
                     String receivedMessage = new String(message.getPayload());
-                    LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
+                    /*LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
                             "\n\tTime:    " + time +
                             "\n\tTopic:   " + topic +
                             "\n\tMessage: " + receivedMessage +
-                            "\n\tQoS:     " + message.getQos() + "\n");
+                            "\n\tQoS:     " + message.getQos() + "\n");*/
 
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
 
@@ -371,6 +359,9 @@ public class DroneClient{
         //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
         drones.get(drones.indexOf(findDrone(drones, droneACuiConsegnare))).setOccupato(true);
 
+        //tolgo la consegna dalla coda delle consegne
+        queueOrdini.remove(ordine);
+
         //LOGGER.info("consegna:" + consegna);
 
         stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
@@ -407,6 +398,7 @@ public class DroneClient{
         return false;
     }
 
+    //TO DO OTHER
     private static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
         Drone drone = null;
@@ -444,7 +436,6 @@ public class DroneClient{
      * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
      * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
      */
-
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
         return drones.get( (pos+1)%drones.size());
@@ -467,6 +458,11 @@ public class DroneClient{
         return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
+    /**
+     * @param drone
+     * @return
+     * Il drone viene aggiunto al server
+     */
     public static List<Drone> addDroneServer(Drone drone){
         ClientConfig clientConfig = new DefaultClientConfig();
         clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
@@ -480,9 +476,19 @@ public class DroneClient{
         return response.getEntity(new GenericType<List<Drone>>() {});
     }
 
+    /**
+     * @param drones
+     * @param drone
+     * @return
+     * Aggiorna la posizione del drone all'interno della lista dei droni
+     * Aggiorna inoltre l'attributo della posizione del singolo drone
+     */
     public static List<Drone> updatePositionDrone(List<Drone> drones, Drone drone){
         Random rnd = new Random();
-        drones.get(drones.indexOf(findDrone(drones, drone))).setPosizionePartenza(new Point(rnd.nextInt(10), rnd.nextInt(10)));
+        Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
+        drones.get(drones.indexOf(findDrone(drones, drone))).setPosizionePartenza(posizionePartenza);
+
+        drone.setPosizionePartenza(posizionePartenza);
         return drones;
     }
 

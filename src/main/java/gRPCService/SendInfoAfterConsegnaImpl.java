@@ -24,10 +24,14 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         this.sync = sync;
     }
 
+    /**
+     * @param sendStat
+     * @param streamObserver
+     * Gestisce le informazioni che riceve dai droni che hanno eseguito una consegna aggiornando le informazioni nella lista dei droni
+     */
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
         arrayListKmPercorsi.add(sendStat.getKmPercorsi());
-        //drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).setOccupato(false);
 
         LOGGER.info("KMPercorsi:"+sendStat.getKmPercorsi());
         getDrone(sendStat.getIdDrone(), drones).setOccupato(false);
@@ -36,6 +40,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             sync.notify();
         }
 
+        //aggiorno la batteria residura del drone che ha effettuato la consegna nella lista
         getDrone(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
 
         //aggiorno la posizione del drone nella lista di droni
@@ -43,6 +48,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone())))
                 .setPosizionePartenza(pos);
 
+        LOGGER.info("NUOVA POSIZIONE"+ drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).getPosizionePartenza());
 
     }
 

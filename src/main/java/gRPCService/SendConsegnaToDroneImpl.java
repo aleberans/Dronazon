@@ -10,6 +10,9 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
+import java.awt.*;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -21,6 +24,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private static final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
     private final List<Drone> drones;
     private final Drone drone;
+    private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone){
         this.drones = drones;
@@ -85,6 +89,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
+    /**
+     * @param consegna
+     * @throws InterruptedException
+     * Manda le informazioni dopo la consegna al drone master:
+     * - id drone, - timestamp, - km percorsi, - posizioneArrivo, - batteria residua
+     */
     private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) throws InterruptedException {
 
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
@@ -95,10 +105,25 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 .setY(consegna.getPuntoConsegna().getY())
                 .build();
 
+        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+
+
+
+        Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
+        Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
+        Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
+
+        LOGGER.info("POSIZIONE DRONE INIZIALE" + posizioneInizialeDrone);
+        LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
+        LOGGER.info("POSIZIONE CONSEGNA" + posizioneConsegna);
+
+        double kmPercorsi = posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
+        LOGGER.info("KM PERCORSI" + kmPercorsi);
+
         SendStat stat = SendStat.newBuilder()
                 .setIdDrone(drone.getId())
-                .setTimestampArrivo("ok")
-                .setKmPercorsi(5)
+                .setTimestampArrivo(sdf3.format(timestamp))
+                .setKmPercorsi(kmPercorsi)
                 .setBetteriaResidua(50)
                 .setPosizioneArrivo(pos)
                 .build();
