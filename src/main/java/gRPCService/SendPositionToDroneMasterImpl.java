@@ -22,7 +22,7 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
         Point pos = new Point(info.getPos().getX(), info.getPos().getY());
         updatePositionDrone(drones, info.getId(), pos);
 
-        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuto invio della posizione").build();
+        ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         streamObserver.onNext(message);
         streamObserver.onCompleted();

@@ -44,7 +44,6 @@ public class DroneClient{
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
     private static final QueueOrdini queueOrdini = new QueueOrdini();
     private static final String LOCALHOST = "localhost";
-    private static final ArrayList<Double> arrayKmPercorsi = new ArrayList<>();
     private static final Object sync = new Object();
 
     public static void main(String[] args) {
@@ -57,7 +56,7 @@ public class DroneClient{
 
             List<Drone> drones = addDroneServer(drone);
             drones = updatePositionDrone(drones, drone);
-            LOGGER.info("POSIZIONE INZIALE MAIN:" + drone.getPosizionePartenza());
+            //LOGGER.info("POSIZIONE INZIALE MAIN:" + drone.getPosizionePartenza());
             if (drones.size()==1){
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
@@ -72,7 +71,7 @@ public class DroneClient{
                     .addService(new SendWhoIsMasterImpl(drones, drone))
                     .addService(new SendPositionToDroneMasterImpl(drones))
                     .addService(new SendConsegnaToDroneImpl(drones, drone))
-                    .addService(new SendInfoAfterConsegnaImpl(drones, arrayKmPercorsi, sync))
+                    .addService(new SendInfoAfterConsegnaImpl(drones, drone.getKmPercorsiSingoloDrone(), sync))
                     .addService(new PingAliveImpl())
                     .build();
             server.start();
@@ -125,14 +124,20 @@ public class DroneClient{
         public void run(){
             while(true){
                 try {
-                    LOGGER.info("ANELLO AGGIORNATO");
+                    //LOGGER.info("PING ALIVE");
                     asynchronousPingAlive(drone, drones);
+                    printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria());
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
         }
+    }
+    private static void printInformazioni(double arrayKmPercorsi, int countConsegne, int batteriaResidua){
+        LOGGER.info("TOTALE CONSEGNE EFFETTUATE: " + countConsegne+"\n"
+                + "TOTALE KM PERCORSI: "+ arrayKmPercorsi +"\n"
+                + "PERCENTUALE BATTERIA RESIDUA: " + batteriaResidua);
     }
 
     /**
@@ -190,7 +195,6 @@ public class DroneClient{
         stub.sendPosition(position, new StreamObserver<ackMessage>() {
             @Override
             public void onNext(ackMessage value) {
-                LOGGER.info(value.getMessage());
             }
 
             @Override
@@ -328,7 +332,6 @@ public class DroneClient{
             stub.presentation(info, new StreamObserver<ackMessage>() {
                 @Override
                 public void onNext(ackMessage value) {
-                    LOGGER.info(value.getMessage());
                 }
 
                 @Override
@@ -389,7 +392,7 @@ public class DroneClient{
                 }
             });
 
-            LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
+            //LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
             client.subscribe(topic,qos);
             LOGGER.info(clientId + " Subscribed to topics : " + topic);
 
@@ -471,7 +474,7 @@ public class DroneClient{
     private static boolean thereIsDroneLibero(List<Drone> drones){
         for(Drone d: drones){
             if (!d.isOccupato()) {
-                LOGGER.info("TROVATO DRONE");
+                //LOGGER.info("TROVATO DRONE");
                 return true;
             }
         }
@@ -509,17 +512,19 @@ public class DroneClient{
         ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
         ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
         ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
+        int count2 = 0;
+        int count = 0;
 
         if (!thereIsDroneLibero(drones)){
-            LOGGER.info("IN WAIT");
+            //LOGGER.info("IN WAIT");
             synchronized (sync){
                 sync.wait();
-                LOGGER.info("SVEGLIATO");
             }
         }
         for (Drone d: drones){
             if (!d.isOccupato()){
                 lista.add(d);
+                //LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
             }
         }
 
@@ -536,24 +541,38 @@ public class DroneClient{
         Optional<Pair<Drone, Integer>> droneMaxBatteria = coppieBatteria.stream()
                 .max(Comparator.comparing(Pair::getValue));
 
-        int count = 0;
-        for (Pair p: coppieDistanza){
-            if (p.getValue() == droneMinDistance)
-                count++;
-        }
+        Optional<Pair<Drone, Integer>> droneMaxId = coppieIdMaggiore.stream()
+                .max(Comparator.comparing(Pair::getValue));
 
-        // c'è solo un drone con distanza minima
-        if (count==1) {
-            Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
-            drone = droneDistanzaMinima.getKey();
-            return drone;
-        }
-        else{
-            Pair<Drone, Integer> droneBatteriaMassima = droneMaxBatteria.orElse(null);
-            drone = droneBatteriaMassima.getKey();
-            return drone;
-        }
+
+
+        Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
+        drone = droneDistanzaMinima.getKey();
+        //LOGGER.info("SOLO UN DRONE CON DISTANZA MINIMA");
+        return drone;
     }
+
+    /*private static void beackup(){
+                else{
+            for (Pair p: coppieBatteria){
+                if (p.getValue() == droneMaxBatteria)
+                    count2++;
+            }
+            if (count2 == 1) {
+                Pair<Drone, Integer> droneBatteriaMassima = droneMaxBatteria.orElse(null);
+                drone = droneBatteriaMassima.getKey();
+                LOGGER.info("PIÙ DRON CON DISTANZA MINIMA MA BATTERIA DIVERSA");
+                return drone;
+            }
+            else{
+                Pair<Drone, Integer> droneIdMax = droneMaxId.orElse(null);
+                assert droneIdMax != null;
+                drone = droneIdMax.getKey();
+                LOGGER.info("PIÙ DRON CON DISTANZA MINIMA MA BATTERIA UGUALE");
+                return drone;
+            }
+        }
+    }*/
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
@@ -643,7 +662,6 @@ public class DroneClient{
     private static void updateRingAfterSimpleDroneQuit(Drone drone, List<Drone> drones) {
         LOGGER.info("PRIMA DI AGGIORNARE"+drones.toString());
         drones.remove(drone);
-        LOGGER.info("UPDATE ANELLO");
-        LOGGER.info(drones.toString());
+        LOGGER.info("ANELLO AGGIORNATO"+drones);
     }
 }

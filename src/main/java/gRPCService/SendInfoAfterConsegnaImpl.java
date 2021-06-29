@@ -14,13 +14,13 @@ import java.util.logging.Logger;
 public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaImplBase {
 
     private final List<Drone> drones;
-    private final ArrayList<Double> arrayListKmPercorsi;
+    private double KmPercorsiTotali;
     private static final Logger LOGGER = Logger.getLogger(SendInfoAfterConsegnaImpl.class.getSimpleName());
     private final Object sync;
 
-    public SendInfoAfterConsegnaImpl(List<Drone> drones,ArrayList<Double> arrayListKmPercorsi, Object sync){
+    public SendInfoAfterConsegnaImpl(List<Drone> drones, double KmPercorsiTotali, Object sync){
         this.drones = drones;
-        this.arrayListKmPercorsi = arrayListKmPercorsi;
+        this.KmPercorsiTotali = KmPercorsiTotali;
         this.sync = sync;
     }
 
@@ -31,13 +31,14 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      */
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
-        arrayListKmPercorsi.add(sendStat.getKmPercorsi());
+        KmPercorsiTotali = KmPercorsiTotali + sendStat.getKmPercorsi();
 
-        LOGGER.info("KMPercorsi:"+sendStat.getKmPercorsi());
+        //LOGGER.info("KMPercorsi:"+sendStat.getKmPercorsi());
         getDrone(sendStat.getIdDrone(), drones).setOccupato(false);
 
         synchronized (sync){
             sync.notify();
+            //LOGGER.info("DRONE SVEGLIATO");
         }
 
         //aggiorno la batteria residua del drone che ha effettuato la consegna nella lista
@@ -48,7 +49,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone())))
                 .setPosizionePartenza(pos);
 
-        LOGGER.info("NUOVA POSIZIONE"+ drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).getPosizionePartenza());
+        //LOGGER.info("NUOVA POSIZIONE"+ drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).getPosizionePartenza());
 
     }
 

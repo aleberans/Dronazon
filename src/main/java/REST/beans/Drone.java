@@ -6,6 +6,7 @@ import org.codehaus.jackson.annotate.JsonIgnore;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import java.awt.*;
+import java.util.ArrayList;
 
 @XmlRootElement
 public class Drone {
@@ -18,6 +19,8 @@ public class Drone {
     @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
     @JsonIgnore private boolean isOccupato = false;
+    @JsonIgnore private double kmPercorsiSingoloDrone = 0;
+    @JsonIgnore private int countConsegne = 0;
 
     public Drone(){}
 
@@ -87,6 +90,22 @@ public class Drone {
 
     public void setOccupato(boolean occupato) {
         isOccupato = occupato;
+    }
+
+    public int getCountConsegne() {
+        return countConsegne;
+    }
+
+    public void setCountConsegne(int countConsegne) {
+        this.countConsegne = countConsegne;
+    }
+
+    public double getKmPercorsiSingoloDrone() {
+        return kmPercorsiSingoloDrone;
+    }
+
+    public void setKmPercorsiSingoloDrone(double kmPercorsiSingoloDrone) {
+        this.kmPercorsiSingoloDrone = kmPercorsiSingoloDrone;
     }
 }
 

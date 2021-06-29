@@ -19,7 +19,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
     public void presentation(SendInfoDrone info, StreamObserver<ackMessage> streamObserver){
 
         Drone drone = new Drone(info.getId(), info.getPortaAscolto(), info.getIndirizzoDrone());
-        ackMessage message = ackMessage.newBuilder().setMessage("Avvenuto invio delle informazioni").build();
+        ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         drones.add(drone);
         streamObserver.onNext(message);

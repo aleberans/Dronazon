@@ -28,9 +28,10 @@ import java.util.logging.Logger;
 public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private static final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
-    private List<Drone> drones;
+    private final List<Drone> drones;
     private final Drone drone;
     private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private double kmPercorsiConsenga;
 
     public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone){
         this.drones = drones;
@@ -43,7 +44,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         if (consegna.getIdDrone() == drone.getId()){
             try {
-                LOGGER.info("INIZIO CONSEGNA");
+                //LOGGER.info("INIZIO CONSEGNA");
                 faiConsegna(consegna);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -68,7 +69,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
             @Override
             public void onNext(ackMessage value) {
-                LOGGER.info(value.getMessage());
             }
 
             @Override
@@ -91,8 +91,22 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         //sendStatistics();
         Thread.sleep(5000);
         drone.setBatteria(drone.getBatteria()-10);
-        LOGGER.info("CONSEGNA EFFETTUATA");
+        drone.setCountConsegne(drone.getCountConsegne()+1);
+        kmPercorsiConsenga = updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna);
+        drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + kmPercorsiConsenga);
+        //LOGGER.info("CONSEGNA EFFETTUATA");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
+    }
+
+    private double updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(Drone drone, Consegna consegna) {
+        Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
+        Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
+        Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
+
+        drone.setPosizionePartenza(posizioneConsegna);
+        //LOGGER.info("INFO SINGOLO DRONE AGGIORNATE");
+        //LOGGER.info("NUOVA POSIZIONE DEL DRONE: " + drone.getPosizionePartenza());
+        return posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
     }
 
     /**
@@ -117,29 +131,28 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
-        LOGGER.info("POSIZIONE DRONE INIZIALE" + posizioneInizialeDrone);
-        LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
+        /*LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
         LOGGER.info("POSIZIONE CONSEGNA" + posizioneConsegna);
-        LOGGER.info("KM PERCORSI" + posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
-        LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());
+        LOGGER.info("KM PERCORSI" + drone.getKmPercorsiSingoloDrone());
+        LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());*/
+
 
 
         SendStat stat = SendStat.newBuilder()
                 .setIdDrone(drone.getId())
                 .setTimestampArrivo(sdf3.format(timestamp))
-                .setKmPercorsi(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna))
+                .setKmPercorsi(drone.getKmPercorsiSingoloDrone())
                 .setBetteriaResidua(drone.getBatteria())
                 .setPosizioneArrivo(pos)
                 .build();
 
-        if (drone.getBatteria() < 15) {
+        /*if (drone.getBatteria() < 15) {
             softQuitFromRing(drone, drones);
-        }
+        }*/
 
         stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
             @Override
             public void onNext(ackMessage value) {
-                LOGGER.info(value.getMessage());
             }
 
             @Override
