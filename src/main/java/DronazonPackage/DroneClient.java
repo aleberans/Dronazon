@@ -124,7 +124,7 @@ public class DroneClient{
         public void run(){
             while(true){
                 try {
-                    //LOGGER.info("PING ALIVE");
+                    LOGGER.info("PING ALIVE");
                     asynchronousPingAlive(drone, drones);
                     printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria());
                     Thread.sleep(10000);
@@ -279,8 +279,14 @@ public class DroneClient{
                         removeDroneServer(drone);
                         break;
                     }
+                    synchronized (this){
+                        if (drone.isInDeliveryOrForwaring()){
+                            LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
+                            wait();
+                        }
+                    }
 
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
 

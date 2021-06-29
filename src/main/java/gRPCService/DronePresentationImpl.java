@@ -23,6 +23,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         drones.add(drone);
+
         //Riordino la lista dopo aver aggiunto il drone che si è inserito
         drones.sort(Comparator.comparingInt(Drone::getId));
         streamObserver.onNext(message);

@@ -21,6 +21,7 @@ public class Drone {
     @JsonIgnore private boolean isOccupato = false;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
     @JsonIgnore private int countConsegne = 0;
+    @JsonIgnore private boolean isInDeliveryOrForwaring = false;
 
     public Drone(){}
 
@@ -28,6 +29,14 @@ public class Drone {
         this.id = id;
         this.portaAscolto = portaAscolto;
         this.indirizzoIpDrone = indirizzoIpDrone;
+    }
+
+    public synchronized boolean isInDeliveryOrForwaring() {
+        return isInDeliveryOrForwaring;
+    }
+
+    public synchronized void setInDeliveryOrForwaring(boolean inDeliveryOrForwaring) {
+        isInDeliveryOrForwaring = inDeliveryOrForwaring;
     }
 
     public int getId(){return this.id;}

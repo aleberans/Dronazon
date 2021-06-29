@@ -44,7 +44,13 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         if (consegna.getIdDrone() == drone.getId()){
             try {
+                drone.setInDeliveryOrForwaring(true);
                 faiConsegna(consegna);
+                drone.setInDeliveryOrForwaring(false);
+                synchronized (this){
+                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
+                    notify();
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -52,7 +58,13 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         else {
             try {
                 LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
+                drone.setInDeliveryOrForwaring(true);
                 forwardConsegna(consegna);
+                drone.setInDeliveryOrForwaring(false);
+                synchronized (this){
+                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
+                    notify();
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
