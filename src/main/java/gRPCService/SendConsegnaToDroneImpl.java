@@ -1,5 +1,7 @@
 package gRPCService;
 
+import DronazonPackage.Ordine;
+import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
@@ -32,10 +34,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private final Drone drone;
     private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private double kmPercorsiConsenga;
+    private QueueOrdini queueOrdini;
 
-    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone){
+    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini){
         this.drones = drones;
         this.drone = drone;
+        this.queueOrdini = queueOrdini;
     }
 
 
@@ -46,14 +50,26 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             try {
                 drone.setInDeliveryOrForwaring(true);
                 faiConsegna(consegna);
-                drone.setInDeliveryOrForwaring(false);
-                synchronized (this){
-                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
-                    notify();
+
+                synchronized (drone){
+                    if (!drone.isInDeliveryOrForwaring()){
+                        drone.notify();
+                        LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
+                    }
+
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+        else if(drone.getIsMaster() && drone.getId() != consegna.getIdDrone()){
+            drones.remove(takeDroneFromId(drones, consegna.getIdDrone()));
+
+            Point puntoRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
+            Point puntoConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
+
+            Ordine ordineDaRiaggiungere = new Ordine(consegna.getIdDrone(), puntoRitiro, puntoConsegna);
+            queueOrdini.add(ordineDaRiaggiungere);
         }
         else {
             try {
@@ -62,12 +78,27 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 forwardConsegna(consegna);
                 drone.setInDeliveryOrForwaring(false);
                 synchronized (this){
-                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
                     notify();
+                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    private static void removeDroneServer(Drone drone){
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
+
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
+
+        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
+
+        if (response.getStatus() != 200){
+            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
         }
     }
 
@@ -101,7 +132,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
         //sendStatistics();
-        LOGGER.info("INIZIO CONSEGNA");
+        LOGGER.info("INIZIO CONSEGNA AL DRONE:  "+ consegna.getIdDrone());
         Thread.sleep(5000);
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
@@ -117,8 +148,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
         drone.setPosizionePartenza(posizioneConsegna);
-        LOGGER.info("INFO SINGOLO DRONE AGGIORNATE");
-        LOGGER.info("NUOVA POSIZIONE DEL DRONE: " + drone.getPosizionePartenza());
         return posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
     }
 
@@ -159,10 +188,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 .setPosizioneArrivo(pos)
                 .build();
 
-        /*if (drone.getBatteria() < 15) {
-            softQuitFromRing(drone, drones);
-        }*/
-
         stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
             @Override
             public void onNext(ackMessage value) {
@@ -178,27 +203,21 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             @Override
             public void onCompleted() {
+                drone.setInDeliveryOrForwaring(false);
+                checkBatteryDrone(drone);
                 channel.shutdown();
             }
         });
         channel.awaitTermination(10, TimeUnit.SECONDS);
     }
 
-    private static void softQuitFromRing(Drone drone, List<Drone> drones){
-        if (!drone.getIsMaster()) {
-            removeDroneServer(drone);
-            updateRingAfterSimpleDroneQuit(drone, drones);
+    private void checkBatteryDrone(Drone drone){
+        if (drone.getIsMaster()){
+            if (drone.getBatteria()<= 15){
+                drones.remove(drone);
+                removeDroneServer(drone);
+            }
         }
-        else{
-            removeDroneServer(drone);
-        }
-    }
-
-    private static void updateRingAfterSimpleDroneQuit(Drone drone, List<Drone> drones) {
-        LOGGER.info("PRIMA DI AGGIORNARE"+drones.toString());
-        drones.remove(drone);
-        LOGGER.info("UPDATE ANELLO");
-        LOGGER.info(drones.toString());
     }
 
     private static Drone findDrone(List<Drone> drones, Drone drone){
@@ -210,23 +229,17 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         return drone;
     }
 
+    public static Drone takeDroneFromId(List<Drone> drones, int id){
+        for (Drone d: drones){
+            if (d.getId()==id)
+                return d;
+        }
+        return null;
+    }
+
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
         return drones.get( (pos+1)%drones.size());
     }
 
-    private static void removeDroneServer(Drone drone){
-        ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-        clientConfig.getClasses().add(JacksonJsonProvider.class);
-        Client client = Client.create(clientConfig);
-
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
-
-        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
-
-        if (response.getStatus() != 200){
-            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
-        }
-    }
 }

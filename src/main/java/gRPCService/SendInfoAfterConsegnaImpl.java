@@ -1,13 +1,11 @@
 package gRPCService;
 
-import DronazonPackage.DroneClient;
+
 import REST.beans.Drone;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
 import io.grpc.stub.StreamObserver;
-
 import java.awt.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -38,11 +36,12 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
 
         synchronized (sync){
             sync.notify();
-            LOGGER.info("SVEGLIATO NON PIÙ OCCUAPTO");
+            LOGGER.info("SVEGLIATO NON PIÙ OCCUPATO");
         }
 
         //aggiorno la batteria residua del drone che ha effettuato la consegna nella lista
         getDrone(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
+
 
         //aggiorno la posizione del drone nella lista di droni
         Point pos = new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY());

@@ -61,6 +61,8 @@ public class DroneClient{
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
             }
+            else
+                drone.setIsMaster(false);
 
             //ordino totale della lista in base all'id
             drones.sort(Comparator.comparingInt(Drone::getId));
@@ -70,7 +72,7 @@ public class DroneClient{
                     .addService(new DronePresentationImpl(drones))
                     .addService(new SendWhoIsMasterImpl(drones, drone))
                     .addService(new SendPositionToDroneMasterImpl(drones))
-                    .addService(new SendConsegnaToDroneImpl(drones, drone))
+                    .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini))
                     .addService(new SendInfoAfterConsegnaImpl(drones, drone.getKmPercorsiSingoloDrone(), sync))
                     .addService(new PingAliveImpl())
                     .build();
@@ -276,16 +278,18 @@ public class DroneClient{
             while (true) {
                 try {
                     if (bf.readLine().equals("quit")){
-                        removeDroneServer(drone);
-                        break;
-                    }
-                    synchronized (this){
-                        if (drone.isInDeliveryOrForwaring()){
-                            LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
-                            wait();
+                        if (!drone.getIsMaster()) {
+                            synchronized (drone) {
+                                if (drone.isInDeliveryOrForwaring()) {
+                                    LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
+                                    drone.wait();
+                                    LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+                                }
+                            }
+                            removeDroneServer(drone);
+                            break;
                         }
                     }
-
                 } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -389,7 +393,7 @@ public class DroneClient{
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
 
                     queueOrdini.add(ordine);
-                    LOGGER.info("ordini:" + queueOrdini);
+                    //LOGGER.info("ordini:" + queueOrdini);
                 }
 
                 @Override
@@ -487,24 +491,6 @@ public class DroneClient{
         return false;
     }
 
-    /*private static void test(List<Drone> drones, Ordine ordine) throws InterruptedException {
-        ArrayList<Drone> lista = new ArrayList<>();
-
-        if (!thereIsDroneLibero(drones)){
-            LOGGER.info("IN WAIT");
-            synchronized (sync){
-                sync.wait();
-                LOGGER.info("SVEGLIATO");
-            }
-        }
-        for (Drone d: drones){
-            if (!d.isOccupato()){
-                lista.add(d);
-            }
-        }
-        lista.stream().
-    }*/
-
 
     /**
      * Calcolo il drone più vicino al punto di ritiro della consegna
@@ -530,7 +516,7 @@ public class DroneClient{
         for (Drone d: drones){
             if (!d.isOccupato()){
                 lista.add(d);
-                LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
+                //LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
             }
         }
 
@@ -557,28 +543,6 @@ public class DroneClient{
         //LOGGER.info("SOLO UN DRONE CON DISTANZA MINIMA");
         return drone;
     }
-
-    /*private static void beackup(){
-                else{
-            for (Pair p: coppieBatteria){
-                if (p.getValue() == droneMaxBatteria)
-                    count2++;
-            }
-            if (count2 == 1) {
-                Pair<Drone, Integer> droneBatteriaMassima = droneMaxBatteria.orElse(null);
-                drone = droneBatteriaMassima.getKey();
-                LOGGER.info("PIÙ DRON CON DISTANZA MINIMA MA BATTERIA DIVERSA");
-                return drone;
-            }
-            else{
-                Pair<Drone, Integer> droneIdMax = droneMaxId.orElse(null);
-                assert droneIdMax != null;
-                drone = droneIdMax.getKey();
-                LOGGER.info("PIÙ DRON CON DISTANZA MINIMA MA BATTERIA UGUALE");
-                return drone;
-            }
-        }
-    }*/
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
@@ -636,16 +600,6 @@ public class DroneClient{
         return drones;
     }
 
-    private static void softQuitFromRing(Drone drone, List<Drone> drones){
-        if (!drone.getIsMaster()) {
-            removeDroneServer(drone);
-            updateRingAfterSimpleDroneQuit(drone, drones);
-        }
-        else{
-            removeDroneServer(drone);
-        }
-    }
-
     /**
      * @param drone
      * Rimuove il drone dal server a seguito della "quit"
@@ -663,11 +617,5 @@ public class DroneClient{
         if (response.getStatus() != 200){
             throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
         }
-    }
-
-    private static void updateRingAfterSimpleDroneQuit(Drone drone, List<Drone> drones) {
-        LOGGER.info("PRIMA DI AGGIORNARE"+drones.toString());
-        drones.remove(drone);
-        LOGGER.info("ANELLO AGGIORNATO"+drones);
     }
 }

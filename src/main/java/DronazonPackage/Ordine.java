@@ -16,6 +16,12 @@ public class Ordine{
         puntoConsegna = new Point(rnd.nextInt(10), rnd.nextInt(10));
     }
 
+    public Ordine(int id, Point puntoRitiro, Point puntoConsegna){
+        this.id = id;
+        this.puntoRitiro = puntoRitiro;
+        this.puntoConsegna = puntoConsegna;
+    }
+
     public int getId() {
         return id;
     }
