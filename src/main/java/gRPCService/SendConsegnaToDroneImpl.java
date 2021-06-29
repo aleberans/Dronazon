@@ -44,7 +44,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         if (consegna.getIdDrone() == drone.getId()){
             try {
-                //LOGGER.info("INIZIO CONSEGNA");
                 faiConsegna(consegna);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -52,6 +51,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
         else {
             try {
+                LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
                 forwardConsegna(consegna);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -89,12 +89,13 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
         //sendStatistics();
+        LOGGER.info("INIZIO CONSEGNA");
         Thread.sleep(5000);
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         kmPercorsiConsenga = updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna);
         drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + kmPercorsiConsenga);
-        //LOGGER.info("CONSEGNA EFFETTUATA");
+        LOGGER.info("CONSEGNA EFFETTUATA");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
@@ -104,8 +105,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
         drone.setPosizionePartenza(posizioneConsegna);
-        //LOGGER.info("INFO SINGOLO DRONE AGGIORNATE");
-        //LOGGER.info("NUOVA POSIZIONE DEL DRONE: " + drone.getPosizionePartenza());
+        LOGGER.info("INFO SINGOLO DRONE AGGIORNATE");
+        LOGGER.info("NUOVA POSIZIONE DEL DRONE: " + drone.getPosizionePartenza());
         return posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
     }
 

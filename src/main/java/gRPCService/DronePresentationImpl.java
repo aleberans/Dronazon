@@ -5,6 +5,7 @@ import com.example.grpc.Message.*;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
+import java.util.Comparator;
 import java.util.List;
 
 public class DronePresentationImpl extends DronePresentationImplBase{
@@ -22,6 +23,8 @@ public class DronePresentationImpl extends DronePresentationImplBase{
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         drones.add(drone);
+        //Riordino la lista dopo aver aggiunto il drone che si è inserito
+        drones.sort(Comparator.comparingInt(Drone::getId));
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }

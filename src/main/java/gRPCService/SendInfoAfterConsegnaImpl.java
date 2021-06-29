@@ -38,7 +38,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
 
         synchronized (sync){
             sync.notify();
-            //LOGGER.info("DRONE SVEGLIATO");
+            LOGGER.info("SVEGLIATO NON PIÙ OCCUAPTO");
         }
 
         //aggiorno la batteria residua del drone che ha effettuato la consegna nella lista

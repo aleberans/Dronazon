@@ -383,7 +383,7 @@ public class DroneClient{
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
 
                     queueOrdini.add(ordine);
-                    //LOGGER.info("ordini:" + queueOrdini);
+                    LOGGER.info("ordini:" + queueOrdini);
                 }
 
                 @Override
@@ -516,7 +516,7 @@ public class DroneClient{
         int count = 0;
 
         if (!thereIsDroneLibero(drones)){
-            //LOGGER.info("IN WAIT");
+            LOGGER.info("IN WAIT");
             synchronized (sync){
                 sync.wait();
             }
@@ -524,7 +524,7 @@ public class DroneClient{
         for (Drone d: drones){
             if (!d.isOccupato()){
                 lista.add(d);
-                //LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
+                LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
             }
         }
 
