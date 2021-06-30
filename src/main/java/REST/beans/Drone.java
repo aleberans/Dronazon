@@ -37,6 +37,8 @@ public class Drone {
 
     public synchronized void setInDeliveryOrForwaring(boolean inDeliveryOrForwaring) {
         isInDeliveryOrForwaring = inDeliveryOrForwaring;
+        if (!isInDeliveryOrForwaring){
+            notify();        }
     }
 
     public int getId(){return this.id;}

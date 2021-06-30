@@ -51,13 +51,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 drone.setInDeliveryOrForwaring(true);
                 faiConsegna(consegna);
 
-                synchronized (drone){
-                    if (!drone.isInDeliveryOrForwaring()){
-                        drone.notify();
-                        LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
-                    }
-
-                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -76,11 +69,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
                 drone.setInDeliveryOrForwaring(true);
                 forwardConsegna(consegna);
-                drone.setInDeliveryOrForwaring(false);
-                synchronized (this){
-                    notify();
-                    LOGGER.info("NOTIFICATO CHE PUÒ USCIRE SENZA PROBLEMI");
-                }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -124,6 +113,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             @Override
             public void onCompleted() {
+                LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
+                drone.setInDeliveryOrForwaring(false);
                 channel.shutdown();
             }
         });
@@ -178,8 +169,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("KM PERCORSI" + drone.getKmPercorsiSingoloDrone());
         LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());*/
 
-
-
         SendStat stat = SendStat.newBuilder()
                 .setIdDrone(drone.getId())
                 .setTimestampArrivo(sdf3.format(timestamp))
@@ -203,8 +192,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             @Override
             public void onCompleted() {
+                LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER");
                 drone.setInDeliveryOrForwaring(false);
-                checkBatteryDrone(drone);
+                //checkBatteryDrone(drone);
+
                 channel.shutdown();
             }
         });

@@ -278,6 +278,7 @@ public class DroneClient{
             while (true) {
                 try {
                     if (bf.readLine().equals("quit")){
+                        LOGGER.info("SI ACCORGE CHE PREMO WAIT?");
                         if (!drone.getIsMaster()) {
                             synchronized (drone) {
                                 if (drone.isInDeliveryOrForwaring()) {
@@ -293,7 +294,6 @@ public class DroneClient{
                 } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
-
             }
             System.exit(0);
             LOGGER.info("Il drone è uscito dalla rete in maniera forzata!");

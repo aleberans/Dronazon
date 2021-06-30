@@ -50,6 +50,10 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
 
         //LOGGER.info("NUOVA POSIZIONE"+ drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).getPosizionePartenza());
 
+        ackMessage message = ackMessage.newBuilder().setMessage("").build();
+
+        streamObserver.onNext(message);
+        streamObserver.onCompleted();
     }
 
     private static Drone getDrone(int id, List<Drone> drones){
