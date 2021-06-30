@@ -13,6 +13,7 @@ import com.sun.jersey.api.client.WebResource;
 import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
+import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
@@ -92,42 +93,67 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
     }
 
+    private static String getAllIdDroni(List<Drone> drones){
+        StringBuilder id = new StringBuilder();
+        for (Drone d: drones){
+            id.append(d.getId()).append(", ");
+        }
+        return id.toString();
+    }
+
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
+
+        LOGGER.info("STATO DELLA LISTA ATTUALMENTE: " + getAllIdDroni(drones));
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
 
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
-        SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
-        stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
-            @Override
-            public void onNext(ackMessage value) {
-            }
+            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
-            @Override
-            public void onError(Throwable t) {
-                try {
-                    drones.remove(takeDroneSuccessivo(d, drones));
-                    forwardConsegna(consegna);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    LOGGER.info("Error" + t.getMessage());
-                    LOGGER.info("Error" + t.getCause());
-                    LOGGER.info("Error" + t.getLocalizedMessage());
-                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                    LOGGER.info("forwardConsegna");
+            stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
                 }
 
-            }
+                @Override
+                public void onError(Throwable t) {
+                    try {
+                        drones.remove(takeDroneSuccessivo(d, drones));
+                        channel.shutdown();
 
-            @Override
-            public void onCompleted() {
-                LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
-                drone.setInDeliveryOrForwaring(false);
-                channel.shutdown();
+                        forwardConsegna(consegna);
+                    } catch (InterruptedException e) {
+                        try {
+                            channel.awaitTermination(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException interruptedException) {
+                            interruptedException.printStackTrace();
+                        }
+                        e.printStackTrace();
+                        LOGGER.info("Error" + t.getMessage());
+                        LOGGER.info("Error" + t.getCause());
+                        LOGGER.info("Error" + t.getLocalizedMessage());
+                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                        LOGGER.info("forwardConsegna");
+                    }
+
+                }
+
+                @Override
+                public void onCompleted() {
+                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
+                    drone.setInDeliveryOrForwaring(false);
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         });
-        channel.awaitTermination(10, TimeUnit.SECONDS);
+
     }
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
@@ -159,57 +185,63 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
      */
     private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) throws InterruptedException {
 
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
-        SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaStub stub = SendInfoAfterConsegnaGrpc.newStub(channel);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
+            SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaStub stub = SendInfoAfterConsegnaGrpc.newStub(channel);
 
-        SendStat.Posizione pos = SendStat.Posizione.newBuilder()
-                .setX(consegna.getPuntoConsegna().getX())
-                .setY(consegna.getPuntoConsegna().getY())
-                .build();
+            SendStat.Posizione pos = SendStat.Posizione.newBuilder()
+                    .setX(consegna.getPuntoConsegna().getX())
+                    .setY(consegna.getPuntoConsegna().getY())
+                    .build();
 
-        Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+            Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 
-        Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
-        Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
-        Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
+            Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
+            Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
+            Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
         /*LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
         LOGGER.info("POSIZIONE CONSEGNA" + posizioneConsegna);
         LOGGER.info("KM PERCORSI" + drone.getKmPercorsiSingoloDrone());
         LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());*/
 
-        SendStat stat = SendStat.newBuilder()
-                .setIdDrone(drone.getId())
-                .setTimestampArrivo(sdf3.format(timestamp))
-                .setKmPercorsi(drone.getKmPercorsiSingoloDrone())
-                .setBetteriaResidua(drone.getBatteria())
-                .setPosizioneArrivo(pos)
-                .build();
+            SendStat stat = SendStat.newBuilder()
+                    .setIdDrone(drone.getId())
+                    .setTimestampArrivo(sdf3.format(timestamp))
+                    .setKmPercorsi(drone.getKmPercorsiSingoloDrone())
+                    .setBetteriaResidua(drone.getBatteria())
+                    .setPosizioneArrivo(pos)
+                    .build();
 
-        stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
-            @Override
-            public void onNext(ackMessage value) {
-            }
+            stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+                }
 
-            @Override
-            public void onError(Throwable t) {
-                LOGGER.info("Error" + t.getMessage());
-                LOGGER.info("Error" + t.getCause());
-                LOGGER.info("Error" + t.getLocalizedMessage());
-                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                LOGGER.info("asynchronousSendStatisticsAndInfoToMaster");
-            }
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    LOGGER.info("asynchronousSendStatisticsAndInfoToMaster");
+                }
 
-            @Override
-            public void onCompleted() {
-                LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER");
-                drone.setInDeliveryOrForwaring(false);
-                //checkBatteryDrone(drone);
-
-                channel.shutdown();
+                @Override
+                public void onCompleted() {
+                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER");
+                    drone.setInDeliveryOrForwaring(false);
+                    //checkBatteryDrone(drone);
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         });
-        channel.awaitTermination(10, TimeUnit.SECONDS);
+
     }
 
     private void checkBatteryDrone(Drone drone){

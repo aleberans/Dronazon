@@ -84,7 +84,6 @@ public class DroneClient{
                 LOGGER.info("Sono il primo master");
                 subTopic("dronazon/smartcity/orders/", drones, drone);
 
-                //Thread che manda le consegna nell'anello
                 SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
                 sendConsegnaThread.start();
             }
@@ -109,6 +108,28 @@ public class DroneClient{
         }
     }
 
+    static class SendConsegnaThread extends Thread {
+
+        private final List<Drone> drones;
+        private final Drone drone;
+
+        public SendConsegnaThread(List<Drone> drones, Drone drone) throws InterruptedException {
+            this.drones = drones;
+            this.drone = drone;
+        }
+
+        @Override
+        public void run(){
+            while (true) {
+                try {
+                    asynchronousSendConsegna(drones, drone);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
     static class PingeResultThread extends Thread{
 
         private final List<Drone> drones;
@@ -125,7 +146,7 @@ public class DroneClient{
                 try {
                     LOGGER.info("PING ALIVE");
                     asynchronousPingAlive(drone, drones);
-                    printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria());
+                    printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria(), drones);
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -133,10 +154,19 @@ public class DroneClient{
             }
         }
     }
-    private static void printInformazioni(double arrayKmPercorsi, int countConsegne, int batteriaResidua){
+    private static void printInformazioni(double arrayKmPercorsi, int countConsegne, int batteriaResidua, List<Drone> drones){
         LOGGER.info("TOTALE CONSEGNE EFFETTUATE: " + countConsegne+"\n"
                 + "TOTALE KM PERCORSI: "+ arrayKmPercorsi +"\n"
-                + "PERCENTUALE BATTERIA RESIDUA: " + batteriaResidua);
+                + "PERCENTUALE BATTERIA RESIDUA: " + batteriaResidua + "\n"
+                + "LISTA DRONI ATTUALE: " + getAllIdDroni(drones));
+    }
+
+    private static String getAllIdDroni(List<Drone> drones){
+        StringBuilder id = new StringBuilder();
+        for (Drone d: drones){
+            id.append(d.getId()).append(", ");
+        }
+        return id.toString();
     }
 
     /**
@@ -184,64 +214,78 @@ public class DroneClient{
      */
     private static void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) throws InterruptedException {
 
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
-        SendPositionToDroneMasterGrpc.SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
+            SendPositionToDroneMasterGrpc.SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
 
-        SendPositionToMaster.Posizione pos = SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
+            SendPositionToMaster.Posizione pos = SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
 
-        SendPositionToMaster position = SendPositionToMaster.newBuilder().setPos(pos).setId(id).build();
+            SendPositionToMaster position = SendPositionToMaster.newBuilder().setPos(pos).setId(id).build();
 
-        stub.sendPosition(position, new StreamObserver<ackMessage>() {
-            @Override
-            public void onNext(ackMessage value) {
-            }
+            stub.sendPosition(position, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+                }
 
-            @Override
-            public void onError(Throwable t) {
-                LOGGER.info("Error" + t.getMessage());
-                LOGGER.info("Error" + t.getCause());
-                LOGGER.info("Error" + t.getLocalizedMessage());
-                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-            }
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                }
 
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         });
-        channel.awaitTermination(10, TimeUnit.SECONDS);
+
     }
 
-    private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) throws InterruptedException {
+    private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) {
 
         Drone succ = takeDroneSuccessivo(drone, drones);
         //LOGGER.info("successivo:"+succ.toString());
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 
-        SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
+            SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
 
-        WhoMaster info = WhoMaster.newBuilder().build();
-        stub.master(info, new StreamObserver<WhoIsMaster>() {
-            @Override
-            public void onNext(WhoIsMaster value) {
-                drone.setDroneMaster(takeDroneFromId(drones, value.getIdMaster()));
-            }
+            WhoMaster info = WhoMaster.newBuilder().build();
+            stub.master(info, new StreamObserver<WhoIsMaster>() {
+                @Override
+                public void onNext(WhoIsMaster value) {
+                    drone.setDroneMaster(takeDroneFromId(drones, value.getIdMaster()));
+                }
 
-            @Override
-            public void onError(Throwable t) {
-                LOGGER.info("Error" + t.getMessage());
-                LOGGER.info("Error" + t.getCause());
-                LOGGER.info("Error" + t.getLocalizedMessage());
-                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                t.printStackTrace();
-            }
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    t.printStackTrace();
+                }
 
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         });
-        channel.awaitTermination(10, TimeUnit.SECONDS);
+
     }
 
     public static Drone takeDroneFromId(List<Drone> drones, int id){
@@ -297,28 +341,6 @@ public class DroneClient{
         }
     }
 
-    static class SendConsegnaThread extends Thread{
-
-        private final List<Drone> drones;
-        private final Drone drone;
-
-        public SendConsegnaThread(List<Drone> drones, Drone drone){
-            this.drones = drones;
-            this.drone = drone;
-        }
-
-        @Override
-        public void run(){
-            while (true){
-                try {
-                    asynchronousSendConsegna(drones, drone);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
     public static void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) throws InterruptedException {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
@@ -328,33 +350,40 @@ public class DroneClient{
 
         //mando a tutti le informazioni dei parametri del drone
         for (Drone dron: pulito){
-            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":" + dron.getPortaAscolto()).usePlaintext().build();
+            Context.current().fork().run( () -> {
+                final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":" + dron.getPortaAscolto()).usePlaintext().build();
 
-            DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
+                DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
 
 
-            SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
-                    .setIndirizzoDrone(drone.getIndirizzoIpDrone()).build();
+                SendInfoDrone info = SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
+                        .setIndirizzoDrone(drone.getIndirizzoIpDrone()).build();
 
-            stub.presentation(info, new StreamObserver<ackMessage>() {
-                @Override
-                public void onNext(ackMessage value) {
-                }
+                stub.presentation(info, new StreamObserver<ackMessage>() {
+                    @Override
+                    public void onNext(ackMessage value) {
+                    }
 
-                @Override
-                public void onError(Throwable t) {
-                    LOGGER.info("Error" + t.getMessage());
-                    LOGGER.info("Error" + t.getCause());
-                    LOGGER.info("Error" + t.getLocalizedMessage());
-                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                }
+                    @Override
+                    public void onError(Throwable t) {
+                        LOGGER.info("Error" + t.getMessage());
+                        LOGGER.info("Error" + t.getCause());
+                        LOGGER.info("Error" + t.getLocalizedMessage());
+                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    }
 
-                @Override
-                public void onCompleted() {
-                    channel.shutdown();
+                    public void onCompleted() {
+                        channel.shutdown();
+                    }
+
+                });
+                try {
+                    channel.awaitTermination(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             });
-            channel.awaitTermination(1, TimeUnit.SECONDS);
+
         }
     }
 
@@ -420,64 +449,86 @@ public class DroneClient{
 
         Ordine ordine = DroneClient.queueOrdini.consume();
 
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
-        SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
+            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
-        Consegna.Posizione posizioneRitiro = Consegna.Posizione.newBuilder()
-                .setX(ordine.getPuntoRitiro().x)
-                .setY(ordine.getPuntoRitiro().y)
-                .build();
+            Consegna.Posizione posizioneRitiro = Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoRitiro().x)
+                    .setY(ordine.getPuntoRitiro().y)
+                    .build();
 
-        Consegna.Posizione posizioneConsegna = Consegna.Posizione.newBuilder()
-                .setX(ordine.getPuntoConsegna().x)
-                .setY(ordine.getPuntoConsegna().y)
-                .build();
+            Consegna.Posizione posizioneConsegna = Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoConsegna().x)
+                    .setY(ordine.getPuntoConsegna().y)
+                    .build();
 
-        Drone droneACuiConsegnare = findDroneToConsegna(drones, ordine);
-
-        Consegna consegna = Consegna.newBuilder()
-                .setIdConsegna(ordine.getId())
-                .setPuntoRitiro(posizioneRitiro)
-                .setPuntoConsegna(posizioneConsegna)
-                .setIdDrone(droneACuiConsegnare.getId())
-                .build();
-
-        //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-        drones.get(drones.indexOf(findDrone(drones, droneACuiConsegnare))).setOccupato(true);
-
-        //tolgo la consegna dalla coda delle consegne
-        queueOrdini.remove(ordine);
-
-        //LOGGER.info("consegna:" + consegna);
-
-        stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
-            @Override
-            public void onNext(ackMessage value) {
-                //LOGGER.info(value.getMessage());
+            Drone droneACuiConsegnare = null;
+            try {
+                droneACuiConsegnare = findDroneToConsegna(drones, ordine);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
 
-            @Override
-            public void onError(Throwable t) {
-                drones.remove(takeDroneSuccessivo(d, drones));
-                try {
-                    asynchronousSendConsegna(drones, d);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    LOGGER.info("Error" + t.getMessage());
-                    LOGGER.info("Error" + t.getCause());
-                    LOGGER.info("Error" + t.getLocalizedMessage());
-                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+            Consegna consegna = Consegna.newBuilder()
+                    .setIdConsegna(ordine.getId())
+                    .setPuntoRitiro(posizioneRitiro)
+                    .setPuntoConsegna(posizioneConsegna)
+                    .setIdDrone(droneACuiConsegnare.getId())
+                    .build();
+
+            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+            drones.get(drones.indexOf(findDrone(drones, droneACuiConsegnare))).setOccupato(true);
+
+            //tolgo la consegna dalla coda delle consegne
+            queueOrdini.remove(ordine);
+
+            //LOGGER.info("consegna:" + consegna);
+
+            stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+                    //LOGGER.info(value.getMessage());
                 }
-            }
 
-            @Override
-            public void onCompleted() {
-                channel.shutdown();
+                @Override
+                public void onError(Throwable t) {
+                    try {
+                        LOGGER.info("IL DRONE CON ID: " + takeDroneSuccessivo(d, drones).getId() + " DEVE ESSERE RIMOSSO POICHÈ È MORTO, LO HA NOTATO: " + d.getId());
+                        LOGGER.info("DENTRO LA LISTA ATTUALMENTE CI SONO: " + getAllIdDroni(drones));
+                        LOGGER.info("DEVE ESSERE RIMOSSO IL: " + takeDroneSuccessivo(d, drones).getId());
+                        drones.remove(takeDroneSuccessivo(d, drones));
+                        LOGGER.info("STATO LISTA DOPO RIMOZIONE " + getAllIdDroni(drones));
+                        LOGGER.info("IL SUCCESSIVO DI " +d.getId() + " ORA È: " +takeDroneSuccessivo(d, drones).getId());
+                        //channel.shutdown();
+                        LOGGER.info("RICHIAMO LA FUNZIONE USANDO COME DRONE: " + d.getId());
+                        asynchronousSendConsegna(drones, d);
+                        channel.shutdown();
+                    } catch (InterruptedException e) {
+                        try {
+                            channel.awaitTermination(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException interruptedException) {
+                            interruptedException.printStackTrace();
+                        }
+                        e.printStackTrace();
+                        LOGGER.info("Error" + t.getMessage());
+                        LOGGER.info("Error" + t.getCause());
+                        LOGGER.info("Error" + t.getLocalizedMessage());
+                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    }
+                }
+
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
         });
-        channel.awaitTermination(1, TimeUnit.SECONDS);
-
     }
 
     /**
