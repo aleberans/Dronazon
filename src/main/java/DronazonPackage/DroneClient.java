@@ -15,10 +15,7 @@ import com.sun.jersey.api.client.config.ClientConfig;
 import com.sun.jersey.api.client.config.DefaultClientConfig;
 import com.sun.jersey.api.json.JSONConfiguration;
 import gRPCService.*;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import javafx.util.Pair;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
@@ -295,8 +292,8 @@ public class DroneClient{
                     e.printStackTrace();
                 }
             }
+            LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
             System.exit(0);
-            LOGGER.info("Il drone è uscito dalla rete in maniera forzata!");
         }
     }
 
@@ -422,6 +419,7 @@ public class DroneClient{
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
 
         Ordine ordine = DroneClient.queueOrdini.consume();
+
         final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
         SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -461,10 +459,16 @@ public class DroneClient{
 
             @Override
             public void onError(Throwable t) {
-                LOGGER.info("Error" + t.getMessage());
-                LOGGER.info("Error" + t.getCause());
-                LOGGER.info("Error" + t.getLocalizedMessage());
-                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                drones.remove(takeDroneSuccessivo(d, drones));
+                try {
+                    asynchronousSendConsegna(drones, d);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                }
             }
 
             @Override

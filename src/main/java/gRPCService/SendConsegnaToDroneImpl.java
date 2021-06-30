@@ -56,6 +56,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             }
         }
         else if(drone.getIsMaster() && drone.getId() != consegna.getIdDrone()){
+            LOGGER.info("IL DRONE: "+ consegna.getIdDrone() + " È CADUTO E LO TOLGO");
             drones.remove(takeDroneFromId(drones, consegna.getIdDrone()));
 
             Point puntoRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
@@ -105,10 +106,18 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             @Override
             public void onError(Throwable t) {
-                LOGGER.info("Error" + t.getMessage());
-                LOGGER.info("Error" + t.getCause());
-                LOGGER.info("Error" + t.getLocalizedMessage());
-                LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                try {
+                    drones.remove(takeDroneSuccessivo(d, drones));
+                    forwardConsegna(consegna);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    LOGGER.info("forwardConsegna");
+                }
+
             }
 
             @Override
@@ -188,6 +197,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 LOGGER.info("Error" + t.getCause());
                 LOGGER.info("Error" + t.getLocalizedMessage());
                 LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                LOGGER.info("asynchronousSendStatisticsAndInfoToMaster");
             }
 
             @Override
