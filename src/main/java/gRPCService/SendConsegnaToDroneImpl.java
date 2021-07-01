@@ -7,6 +7,7 @@ import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
+import com.google.protobuf.Empty;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
@@ -47,11 +48,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver) {
 
+        drone.setInDeliveryOrForwaring(true);
         if (consegna.getIdDrone() == drone.getId()){
             try {
-                drone.setInDeliveryOrForwaring(true);
                 faiConsegna(consegna);
-
+                streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
+                streamObserver.onCompleted();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -65,13 +67,15 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             Ordine ordineDaRiaggiungere = new Ordine(consegna.getIdDrone(), puntoRitiro, puntoConsegna);
             queueOrdini.add(ordineDaRiaggiungere);
+            streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
+            streamObserver.onCompleted();
         }
         else {
             try {
                 LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
-                drone.setInDeliveryOrForwaring(true);
                 forwardConsegna(consegna);
-
+                streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
+                streamObserver.onCompleted();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -103,7 +107,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
 
-        LOGGER.info("STATO DELLA LISTA ATTUALMENTE: " + getAllIdDroni(drones));
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
 
 
@@ -120,24 +123,23 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onError(Throwable t) {
                     try {
+                        LOGGER.info("ENTRA IN ERROR NELLA DELIVERY?");
                         drones.remove(takeDroneSuccessivo(d, drones));
-                        channel.shutdown();
-
+                        channel.shutdownNow();
                         forwardConsegna(consegna);
                     } catch (InterruptedException e) {
                         try {
                             channel.awaitTermination(1, TimeUnit.SECONDS);
                         } catch (InterruptedException interruptedException) {
                             interruptedException.printStackTrace();
+                            e.printStackTrace();
+                            LOGGER.info("Error" + t.getMessage());
+                            LOGGER.info("Error" + t.getCause());
+                            LOGGER.info("Error" + t.getLocalizedMessage());
+                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                            LOGGER.info("forwardConsegna");
                         }
-                        e.printStackTrace();
-                        LOGGER.info("Error" + t.getMessage());
-                        LOGGER.info("Error" + t.getCause());
-                        LOGGER.info("Error" + t.getLocalizedMessage());
-                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                        LOGGER.info("forwardConsegna");
                     }
-
                 }
 
                 @Override
@@ -229,7 +231,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onCompleted() {
-                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER");
+                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER, DRONE SETTATO COME LIBERO");
                     drone.setInDeliveryOrForwaring(false);
                     //checkBatteryDrone(drone);
                     channel.shutdown();

@@ -31,7 +31,6 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
 
         KmPercorsiTotali = KmPercorsiTotali + sendStat.getKmPercorsi();
 
-        //LOGGER.info("KMPercorsi:"+sendStat.getKmPercorsi());
         getDrone(sendStat.getIdDrone(), drones).setOccupato(false);
 
         synchronized (sync){
@@ -48,7 +47,6 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone())))
                 .setPosizionePartenza(pos);
 
-        //LOGGER.info("NUOVA POSIZIONE"+ drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone()))).getPosizionePartenza());
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 

@@ -191,7 +191,7 @@ public class DroneClient{
             @Override
             public void onError(Throwable t) {
                 drones.remove(successivo);
-                LOGGER.info("IL DRONE SUCCESSIVO È MORTO"+drones);
+                LOGGER.info("IL DRONE SUCCESSIVO È MORTO" + drones);
                 try {
                     asynchronousPingAlive(drone, drones);
                     channel.shutdown();
@@ -212,7 +212,7 @@ public class DroneClient{
     /**
      * mando la posizione al drone master
      */
-    private static void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) throws InterruptedException {
+    private static void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) {
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
@@ -250,9 +250,7 @@ public class DroneClient{
     }
 
     private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) {
-
         Drone succ = takeDroneSuccessivo(drone, drones);
-        //LOGGER.info("successivo:"+succ.toString());
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 
@@ -297,12 +295,12 @@ public class DroneClient{
     }
 
     public static Drone findDrone(List<Drone> drones, Drone drone){
-
+        Drone dro = null;
         for (Drone d: drones){
             if (d.getId() == drone.getId())
-                return d;
+                dro = d;
         }
-        return drone;
+        return dro;
     }
 
     static class StopThread extends Thread{
@@ -341,7 +339,7 @@ public class DroneClient{
         }
     }
 
-    public static void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) throws InterruptedException {
+    public static void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
         Drone d = findDrone(drones, drone);
@@ -444,14 +442,19 @@ public class DroneClient{
 
     }
 
-    private static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
-        Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
+    public static Drone takeDroneFromList(Drone drone, List<Drone> drones){
+        return drones.get(drones.indexOf(findDrone(drones, drone)));
+    }
 
+
+    private static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
+        Drone d = takeDroneFromList(drone, drones);
         Ordine ordine = DroneClient.queueOrdini.consume();
 
         Context.current().fork().run( () -> {
+            LOGGER.info("TENTO DI CREARE IL CANALE");
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
-
+            LOGGER.info("CANALE DI COMUNICAZIONE CREATO");
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
             Consegna.Posizione posizioneRitiro = Consegna.Posizione.newBuilder()
@@ -484,8 +487,6 @@ public class DroneClient{
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
 
-            //LOGGER.info("consegna:" + consegna);
-
             stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
                 @Override
                 public void onNext(ackMessage value) {
@@ -495,30 +496,26 @@ public class DroneClient{
                 @Override
                 public void onError(Throwable t) {
                     try {
-                        LOGGER.info("IL DRONE CON ID: " + takeDroneSuccessivo(d, drones).getId() + " DEVE ESSERE RIMOSSO POICHÈ È MORTO, LO HA NOTATO: " + d.getId());
-                        LOGGER.info("DENTRO LA LISTA ATTUALMENTE CI SONO: " + getAllIdDroni(drones));
-                        LOGGER.info("DEVE ESSERE RIMOSSO IL: " + takeDroneSuccessivo(d, drones).getId());
+                        channel.shutdownNow();
+                        LOGGER.info("ENTRA QUAAAAAAAAAAAAAAAAAAAAAA");
+                        LOGGER.info("ANDATO IN ON ERROR, TENTO DI RIMUOVERE IL DRONE, STATO LISTA: " + drones);
                         drones.remove(takeDroneSuccessivo(d, drones));
-                        LOGGER.info("STATO LISTA DOPO RIMOZIONE " + getAllIdDroni(drones));
-                        LOGGER.info("IL SUCCESSIVO DI " +d.getId() + " ORA È: " +takeDroneSuccessivo(d, drones).getId());
-                        //channel.shutdown();
-                        LOGGER.info("RICHIAMO LA FUNZIONE USANDO COME DRONE: " + d.getId());
+                        LOGGER.info("DRONE RIMOSSO, ORA LA LISTA È: " + drones);
                         asynchronousSendConsegna(drones, d);
-                        channel.shutdown();
                     } catch (InterruptedException e) {
                         try {
-                            channel.awaitTermination(10, TimeUnit.SECONDS);
+                            e.printStackTrace();
+                            LOGGER.info("Error" + t.getMessage());
+                            LOGGER.info("Error" + t.getCause());
+                            LOGGER.info("Error" + t.getLocalizedMessage());
+                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                            channel.awaitTermination(1, TimeUnit.SECONDS);
                         } catch (InterruptedException interruptedException) {
                             interruptedException.printStackTrace();
                         }
-                        e.printStackTrace();
-                        LOGGER.info("Error" + t.getMessage());
-                        LOGGER.info("Error" + t.getCause());
-                        LOGGER.info("Error" + t.getLocalizedMessage());
-                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+
                     }
                 }
-
                 public void onCompleted() {
                     channel.shutdown();
                 }
@@ -601,7 +598,7 @@ public class DroneClient{
 
     private static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
         int pos = drones.indexOf(findDrone(drones, drone));
-        return drones.get( (pos+1)%drones.size());
+        return drones.get((pos+1)%drones.size());
     }
 
     public static String sendStatistics(){

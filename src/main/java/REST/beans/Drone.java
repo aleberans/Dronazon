@@ -92,6 +92,9 @@ public class Drone {
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
                 ", isOccupato=" + isOccupato +
+                ", kmPercorsiSingoloDrone=" + kmPercorsiSingoloDrone +
+                ", countConsegne=" + countConsegne +
+                ", isInDeliveryOrForwaring=" + isInDeliveryOrForwaring +
                 '}';
     }
 

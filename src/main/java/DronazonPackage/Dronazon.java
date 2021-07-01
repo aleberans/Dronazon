@@ -1,13 +1,11 @@
 package DronazonPackage;
 
 import com.google.gson.Gson;
-import jdk.nashorn.internal.runtime.logging.DebugLogger;
 import org.eclipse.paho.client.mqttv3.*;
 
 
 import java.util.logging.Logger;
 
-import static java.lang.Thread.sleep;
 
 public class Dronazon{
 
