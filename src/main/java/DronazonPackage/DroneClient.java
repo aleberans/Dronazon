@@ -51,6 +51,7 @@ public class DroneClient{
 
             Drone drone = new Drone(id, portaAscolto, LOCALHOST);
 
+            LOGGER.info("ID DRONE: " + drone.getId());
             List<Drone> drones = addDroneServer(drone);
             drones = updatePositionDrone(drones, drone);
             //LOGGER.info("POSIZIONE INZIALE MAIN:" + drone.getPosizionePartenza());
@@ -452,9 +453,7 @@ public class DroneClient{
         Ordine ordine = DroneClient.queueOrdini.consume();
 
         Context.current().fork().run( () -> {
-            LOGGER.info("TENTO DI CREARE IL CANALE");
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
-            LOGGER.info("CANALE DI COMUNICAZIONE CREATO");
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
 
             Consegna.Posizione posizioneRitiro = Consegna.Posizione.newBuilder()
@@ -496,11 +495,13 @@ public class DroneClient{
                 @Override
                 public void onError(Throwable t) {
                     try {
+                        t.printStackTrace();
                         channel.shutdownNow();
-                        LOGGER.info("ENTRA QUAAAAAAAAAAAAAAAAAAAAAA");
-                        LOGGER.info("ANDATO IN ON ERROR, TENTO DI RIMUOVERE IL DRONE, STATO LISTA: " + drones);
+                        LOGGER.info("LO STATO DELLA LISTA È: " + getAllIdDroni(drones) +
+                                "\n IL DRONE CHE STA PROVANDO A FARE LA CONSEGNA È: " + d.getId() +
+                                "\n IL DRONE SUCCESSIVO A LUI È: " + takeDroneSuccessivo(d, drones).getId());
                         drones.remove(takeDroneSuccessivo(d, drones));
-                        LOGGER.info("DRONE RIMOSSO, ORA LA LISTA È: " + drones);
+                        LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + getAllIdDroni(drones));
                         asynchronousSendConsegna(drones, d);
                     } catch (InterruptedException e) {
                         try {
@@ -565,10 +566,11 @@ public class DroneClient{
                 sync.wait();
             }
         }
+        LOGGER.info("ESCO DALLA WAIT");
+
         for (Drone d: drones){
             if (!d.isOccupato()){
                 lista.add(d);
-                //LOGGER.info("LA LISTA DEI DRONI AGGIORNAtA È: "+lista);
             }
         }
 

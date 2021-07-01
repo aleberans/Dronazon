@@ -49,11 +49,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver) {
 
         drone.setInDeliveryOrForwaring(true);
+        streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
+        streamObserver.onCompleted();
+
         if (consegna.getIdDrone() == drone.getId()){
             try {
                 faiConsegna(consegna);
-                streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
-                streamObserver.onCompleted();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -67,15 +68,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
             Ordine ordineDaRiaggiungere = new Ordine(consegna.getIdDrone(), puntoRitiro, puntoConsegna);
             queueOrdini.add(ordineDaRiaggiungere);
-            streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
-            streamObserver.onCompleted();
         }
         else {
             try {
                 LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
                 forwardConsegna(consegna);
-                streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
-                streamObserver.onCompleted();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -109,7 +106,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
 
-
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + takeDroneSuccessivo(d, drones).getPortaAscolto()).usePlaintext().build();
 
@@ -123,9 +119,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onError(Throwable t) {
                     try {
+                        channel.shutdownNow();
                         LOGGER.info("ENTRA IN ERROR NELLA DELIVERY?");
                         drones.remove(takeDroneSuccessivo(d, drones));
-                        channel.shutdownNow();
                         forwardConsegna(consegna);
                     } catch (InterruptedException e) {
                         try {
@@ -233,7 +229,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onCompleted() {
                     LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER, DRONE SETTATO COME LIBERO");
                     drone.setInDeliveryOrForwaring(false);
-                    //checkBatteryDrone(drone);
+                    checkBatteryDrone(drone);
                     channel.shutdown();
                 }
             });
@@ -246,11 +242,22 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     }
 
-    private void checkBatteryDrone(Drone drone){
-        if (drone.getIsMaster()){
+    private void checkBatteryDrone(Drone drone) {
+        if (!drone.getIsMaster()){
             if (drone.getBatteria()<= 15){
-                drones.remove(drone);
+                synchronized (drone){
+                    if (drone.isInDeliveryOrForwaring()){
+                        try {
+                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
+                            drone.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
                 removeDroneServer(drone);
+                LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+                System.exit(0);
             }
         }
     }
