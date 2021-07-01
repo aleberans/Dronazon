@@ -53,6 +53,10 @@ message SendStat{
   }
 }
 
+message ElectionMessage{
+  required int32 idCurrentMaster = 1;
+}
+
 service DronePresentation{
   rpc presentation(SendInfoDrone) returns (ackMessage);
 }
@@ -77,6 +81,10 @@ message PingMessage{}
 
 service PingAlive{
   rpc ping(PingMessage) returns (PingMessage);
+}
+
+service Election{
+  rpc sendElection(ElectionMessage) returns (ackMessage);
 }
 
 

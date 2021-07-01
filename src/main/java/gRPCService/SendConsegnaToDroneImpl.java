@@ -3,11 +3,11 @@ package gRPCService;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
+import com.example.grpc.ElectionGrpc;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
-import com.google.protobuf.Empty;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
@@ -37,6 +37,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private double kmPercorsiConsenga;
     private QueueOrdini queueOrdini;
+    private static final String LOCALHOST = "localhost";
 
     public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini){
         this.drones = drones;
@@ -94,14 +95,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
     }
 
-    private static String getAllIdDroni(List<Drone> drones){
-        StringBuilder id = new StringBuilder();
-        for (Drone d: drones){
-            id.append(d.getId()).append(", ");
-        }
-        return id.toString();
-    }
-
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
 
         Drone d = drones.get(drones.indexOf(findDrone(drones, drone)));
@@ -120,7 +113,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onError(Throwable t) {
                     try {
                         channel.shutdownNow();
-                        LOGGER.info("ENTRA IN ERROR NELLA DELIVERY?");
+                        if (takeDroneSuccessivo(d, drones).getIsMaster()){
+                            Drone masterCaduto = takeDroneSuccessivo(d, drones);
+                            startElection(drones, d, masterCaduto);
+                        }
                         drones.remove(takeDroneSuccessivo(d, drones));
                         forwardConsegna(consegna);
                     } catch (InterruptedException e) {
@@ -152,6 +148,49 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             }
         });
 
+    }
+
+    private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) {
+        drones.remove(masterCaduto);
+
+        //ELETTO QUELLO CON BATTERIA MAGGIORE
+        asynchronousStartElection(drones, drone);
+    }
+
+    private void asynchronousStartElection(List<Drone> drones, Drone drone){
+        Drone successivo = takeDroneSuccessivo(drone, drones);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
+
+            ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
+
+            ElectionMessage electionMessage = ElectionMessage.newBuilder().setIdCurrentMaster(drone.getId()).build();
+
+            stub.sendElection(electionMessage, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    channel.shutdownNow();
+                    drones.remove(successivo);
+                    asynchronousStartElection(drones, drone);
+                    LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
