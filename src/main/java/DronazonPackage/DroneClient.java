@@ -82,7 +82,7 @@ public class DroneClient{
                     .addService(new SendWhoIsMasterImpl(drones, drone))
                     .addService(new SendPositionToDroneMasterImpl(drones))
                     .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini))
-                    .addService(new SendInfoAfterConsegnaImpl(drones, drone.getKmPercorsiSingoloDrone(), sync))
+                    .addService(new SendInfoAfterConsegnaImpl(drones, sync))
                     .addService(new PingAliveImpl())
                     .build();
             server.start();
@@ -180,7 +180,7 @@ public class DroneClient{
         public void run(){
             while(true){
                 try {
-                    LOGGER.info("PING ALIVE");
+                    //LOGGER.info("PING ALIVE");
                     asynchronousPingAlive(drone, drones);
                     printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria(), drones);
                     Thread.sleep(10000);
@@ -194,7 +194,8 @@ public class DroneClient{
         LOGGER.info("TOTALE CONSEGNE EFFETTUATE: " + countConsegne+"\n"
                 + "TOTALE KM PERCORSI: "+ arrayKmPercorsi +"\n"
                 + "PERCENTUALE BATTERIA RESIDUA: " + batteriaResidua + "\n"
-                + "LISTA DRONI ATTUALE: " + getAllIdDroni(drones));
+                + "LISTA DRONI ATTUALE: " + getAllIdDroni(drones) + "\n"
+                + "CONTENUTO LISTA DRONI" + drones);
     }
 
 
@@ -369,6 +370,7 @@ public class DroneClient{
                             removeDroneServer(drone);
                             break;
                         }else{
+                            LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
                             synchronized (drone){
                                 if (drone.isInDeliveryOrForwaring()) {
                                     LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
@@ -391,6 +393,7 @@ public class DroneClient{
                             }
                             removeDroneServer(drone);
                             sendStatistics(drones);
+                            break;
                         }
                     }
                 } catch (IOException | InterruptedException | MqttException e) {
@@ -444,13 +447,11 @@ public class DroneClient{
                     e.printStackTrace();
                 }
             });
-
         }
     }
 
     private static void subTopic(String topic, MqttClient client) {
         int qos = 0;
-
         try {
             MqttConnectOptions connectOptions = new MqttConnectOptions();
             connectOptions.setCleanSession(true);
@@ -546,7 +547,7 @@ public class DroneClient{
 
             synchronized (queueOrdini){
                 if (queueOrdini.size() == 0)
-                    LOGGER.info("CODA COMPLETAMENTE SVUOTATA");
+                    //LOGGER.info("CODA COMPLETAMENTE SVUOTATA");
                     queueOrdini.notify();
             }
             stub.sendConsegna(consegna, new StreamObserver<ackMessage>() {
@@ -623,12 +624,11 @@ public class DroneClient{
         int count = 0;
 
         if (!thereIsDroneLibero(drones)){
-            LOGGER.info("IN WAIT");
+            //LOGGER.info("IN WAIT");
             synchronized (sync){
                 sync.wait();
             }
         }
-        LOGGER.info("ESCO DALLA WAIT");
 
         for (Drone d: drones){
             if (!d.isOccupato()){
@@ -673,15 +673,20 @@ public class DroneClient{
         Timestamp ts = new Timestamp(date.getTime());
 
         int mediaCountConsegne = 0;
-        double mediaKmPercorsi = 0;
+        double mediaKmPercorsi = 0.0;
         int mediaInquinamento = 0;
         int mediaBatteriaResidua = 0;
+        int countDroniAttivi = 0;
 
         mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
         mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
         mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
+        countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
 
-        Statistic statistic = new Statistic(ts.toString(), mediaCountConsegne, mediaKmPercorsi, mediaInquinamento, mediaBatteriaResidua);
+        Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
+                mediaKmPercorsi / countDroniAttivi,
+                mediaInquinamento,
+                mediaBatteriaResidua/countDroniAttivi);
         ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
         return "Output from Server .... \n" + response.getEntity(String.class);
     }

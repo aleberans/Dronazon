@@ -12,13 +12,11 @@ import java.util.logging.Logger;
 public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaImplBase {
 
     private final List<Drone> drones;
-    private double KmPercorsiTotali;
     private static final Logger LOGGER = Logger.getLogger(SendInfoAfterConsegnaImpl.class.getSimpleName());
     private final Object sync;
 
-    public SendInfoAfterConsegnaImpl(List<Drone> drones, double KmPercorsiTotali, Object sync){
+    public SendInfoAfterConsegnaImpl(List<Drone> drones, Object sync){
         this.drones = drones;
-        this.KmPercorsiTotali = KmPercorsiTotali;
         this.sync = sync;
     }
 
@@ -29,31 +27,30 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      */
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
-        KmPercorsiTotali = KmPercorsiTotali + sendStat.getKmPercorsi();
-        drones.get(drones.indexOf(getDrone(sendStat.getIdDrone(), drones))).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
-
 
         if (drones.contains(takeDroneFromId(drones, sendStat.getIdDrone()))) {
-            LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
-                            "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");
-            getDrone(sendStat.getIdDrone(), drones).setOccupato(false);
+            /*LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
+                            "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");*/
+            getDroneFromList(sendStat.getIdDrone(), drones).setOccupato(false);
             synchronized (sync){
                 sync.notify();
-                LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
+                //LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
             }
         }
         else
             LOGGER.info("IL DRONE È USCITO");
 
 
-        //aggiorno la batteria residua del drone che ha effettuato la consegna nella lista
-        getDrone(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
-
+        //aggiorno la batteria, km percorsi e count del drone che ha effettuato la consegna nella lista
+        getDroneFromList(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
+        getDroneFromList(sendStat.getIdDrone(), drones).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
+        getDroneFromList(sendStat.getIdDrone(), drones).setCountConsegne(
+                getDroneFromList(sendStat.getIdDrone(), drones).getCountConsegne() + 1);
+        LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
 
         //aggiorno la posizione del drone nella lista di droni
         Point pos = new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY());
-        drones.get(drones.indexOf(takeDroneFromId(drones, sendStat.getIdDrone())))
-                .setPosizionePartenza(pos);
+        getDroneFromList(sendStat.getIdDrone(), drones).setPosizionePartenza(pos);
 
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
@@ -62,7 +59,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         streamObserver.onCompleted();
     }
 
-    private static Drone getDrone(int id, List<Drone> drones){
+    private static Drone getDroneFromList(int id, List<Drone> drones){
         return drones.get(drones.indexOf(takeDroneFromId(drones, id)));
     }
 

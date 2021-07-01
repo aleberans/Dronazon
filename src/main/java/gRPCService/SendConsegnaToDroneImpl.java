@@ -155,12 +155,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
-        //sendStatistics();
-        LOGGER.info("INIZIO CONSEGNA AL DRONE:  "+ consegna.getIdDrone());
         Thread.sleep(5000);
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         kmPercorsiConsenga = updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna);
+        LOGGER.info("KM PERCORSI SINGOLO DRONE: " + kmPercorsiConsenga);
         drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + kmPercorsiConsenga);
         LOGGER.info("CONSEGNA EFFETTUATA");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
@@ -181,7 +180,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
      * Manda le informazioni dopo la consegna al drone master:
      * - id drone, - timestamp, - km percorsi, - posizioneArrivo, - batteria residua
      */
-    private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) throws InterruptedException {
+    private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) {
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
@@ -193,15 +192,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     .build();
 
             Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-
-            Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
-            Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
-            Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
-
-        /*LOGGER.info("POSIZIONE ORDINE: " + posizioneRitiro);
-        LOGGER.info("POSIZIONE CONSEGNA" + posizioneConsegna);
-        LOGGER.info("KM PERCORSI" + drone.getKmPercorsiSingoloDrone());
-        LOGGER.info("BETTARIA RESIDUA: " + drone.getBatteria());*/
 
             SendStat stat = SendStat.newBuilder()
                     .setIdDrone(drone.getId())
@@ -227,7 +217,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onCompleted() {
-                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA MANDATE AL MASTER, DRONE SETTATO COME LIBERO");
                     drone.setInDeliveryOrForwaring(false);
                     checkBatteryDrone(drone);
                     channel.shutdown();

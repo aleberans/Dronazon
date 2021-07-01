@@ -7,14 +7,14 @@ import java.sql.Timestamp;
 public class Statistic {
 
     private String timestamp;
-    private int numeroConsegne;
+    private double numeroConsegne;
     private double kmPercorsi;
-    private int inquinamento;
-    private int batteriaResidua;
+    private double inquinamento;
+    private double batteriaResidua;
 
     public Statistic(){}
 
-    public Statistic(String timestamp, int numeroConsegne, double kmPercorsi, int inquinamento, int batteriaResidua){
+    public Statistic(String timestamp, double numeroConsegne, double kmPercorsi, double inquinamento, double batteriaResidua){
 
         this.timestamp = timestamp;
         this.numeroConsegne = numeroConsegne;
@@ -31,29 +31,29 @@ public class Statistic {
         this.timestamp = timestamp;
     }
 
-    public int getNumeroConsegne() {return numeroConsegne;}
-    public void setNumeroConsegne(int numeroConsegne) {this.numeroConsegne = numeroConsegne;}
+    public double getNumeroConsegne() {return numeroConsegne;}
+    public void setNumeroConsegne(double numeroConsegne) {this.numeroConsegne = numeroConsegne;}
 
     public double getKmPercorsi() {return kmPercorsi;
     }
 
-    public void setKmPercorsi(int kmPercorsi) {
+    public void setKmPercorsi(double kmPercorsi) {
         this.kmPercorsi = kmPercorsi;
     }
 
-    public int getInquinamento() {
+    public double getInquinamento() {
         return inquinamento;
     }
 
-    public void setInquinamento(int inquinamento) {
+    public void setInquinamento(double inquinamento) {
         this.inquinamento = inquinamento;
     }
 
-    public int getBatteriaResidua() {
+    public double getBatteriaResidua() {
         return batteriaResidua;
     }
 
-    public void setBatteriaResidua(int batteriaResidua) {
+    public void setBatteriaResidua(double batteriaResidua) {
         this.batteriaResidua = batteriaResidua;
     }
 }
