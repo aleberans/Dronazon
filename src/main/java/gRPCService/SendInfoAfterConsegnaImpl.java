@@ -30,6 +30,8 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
         KmPercorsiTotali = KmPercorsiTotali + sendStat.getKmPercorsi();
+        drones.get(drones.indexOf(getDrone(sendStat.getIdDrone(), drones))).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
+
 
         if (drones.contains(takeDroneFromId(drones, sendStat.getIdDrone()))) {
             LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +

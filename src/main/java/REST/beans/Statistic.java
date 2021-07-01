@@ -8,13 +8,13 @@ public class Statistic {
 
     private String timestamp;
     private int numeroConsegne;
-    private int kmPercorsi;
+    private double kmPercorsi;
     private int inquinamento;
     private int batteriaResidua;
 
     public Statistic(){}
 
-    public Statistic(String timestamp, int numeroConsegne, int kmPercorsi, int inquinamento, int batteriaResidua){
+    public Statistic(String timestamp, int numeroConsegne, double kmPercorsi, int inquinamento, int batteriaResidua){
 
         this.timestamp = timestamp;
         this.numeroConsegne = numeroConsegne;
@@ -34,7 +34,7 @@ public class Statistic {
     public int getNumeroConsegne() {return numeroConsegne;}
     public void setNumeroConsegne(int numeroConsegne) {this.numeroConsegne = numeroConsegne;}
 
-    public int getKmPercorsi() {return kmPercorsi;
+    public double getKmPercorsi() {return kmPercorsi;
     }
 
     public void setKmPercorsi(int kmPercorsi) {

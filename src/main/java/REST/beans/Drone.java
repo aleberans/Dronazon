@@ -16,7 +16,7 @@ public class Drone {
     private String indirizzoIpDrone;
     @JsonIgnore private Point posizionePartenza;
     @JsonIgnore private boolean isMaster;
-    @JsonIgnore private int batteria = 30;
+    @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
     @JsonIgnore private boolean isOccupato = false;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
