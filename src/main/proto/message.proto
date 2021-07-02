@@ -57,6 +57,10 @@ message ElectionMessage{
   required int32 idCurrentMaster = 1;
 }
 
+message IdMaster{
+  required int32 idNewMaster = 1;
+}
+
 service DronePresentation{
   rpc presentation(SendInfoDrone) returns (ackMessage);
 }
@@ -87,5 +91,8 @@ service Election{
   rpc sendElection(ElectionMessage) returns (ackMessage);
 }
 
+service NewIdMaster{
+  rpc sendNewIdMaster(IdMaster) returns (ackMessage);
+}
 
 

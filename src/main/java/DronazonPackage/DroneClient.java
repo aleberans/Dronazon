@@ -84,6 +84,8 @@ public class DroneClient{
                     .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini))
                     .addService(new SendInfoAfterConsegnaImpl(drones, sync))
                     .addService(new PingAliveImpl())
+                    .addService(new ElectionImpl(drone, drones))
+                    .addService(new NewIdMasterImpl(drones, drone))
                     .build();
             server.start();
             }catch (BindException b){
@@ -182,7 +184,7 @@ public class DroneClient{
                 try {
                     //LOGGER.info("PING ALIVE");
                     asynchronousPingAlive(drone, drones);
-                    printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria(), drones);
+                    printInformazioni(drone.getKmPercorsiSingoloDrone(), drone.getCountConsegne(), drone.getBatteria(), drones, drone);
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -190,12 +192,12 @@ public class DroneClient{
             }
         }
     }
-    private static void printInformazioni(double arrayKmPercorsi, int countConsegne, int batteriaResidua, List<Drone> drones){
+    private static void printInformazioni(double arrayKmPercorsi, int countConsegne, int batteriaResidua, List<Drone> drones, Drone drone){
         LOGGER.info("TOTALE CONSEGNE EFFETTUATE: " + countConsegne+"\n"
                 + "TOTALE KM PERCORSI: "+ arrayKmPercorsi +"\n"
                 + "PERCENTUALE BATTERIA RESIDUA: " + batteriaResidua + "\n"
                 + "LISTA DRONI ATTUALE: " + getAllIdDroni(drones) + "\n"
-                + "CONTENUTO LISTA DRONI" + drones);
+                + "L'ATTUALE MASTER È " + drone.getDroneMaster().getId());
     }
 
 
@@ -229,11 +231,17 @@ public class DroneClient{
 
             @Override
             public void onError(Throwable t) {
-                drones.remove(successivo);
-                LOGGER.info("IL DRONE SUCCESSIVO È MORTO" + drones);
                 try {
-                    asynchronousPingAlive(drone, drones);
                     channel.shutdown();
+                    if (drone.getDroneMaster() == successivo){
+                        LOGGER.info("ELEZIONE INDETTA TRAMITE PING");
+                        drones.remove(successivo);
+                        asynchronousStartElection(drones, drone);
+                    }
+                    else
+                        drones.remove(successivo);
+                    LOGGER.info("IL DRONE SUCCESSIVO È MORTO, CI SI È ACCORTI TRAMITE PING" + drones);
+                    asynchronousPingAlive(drone, drones);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -246,6 +254,42 @@ public class DroneClient{
         });
         channel.awaitTermination(10, TimeUnit.SECONDS);
 
+    }
+
+    private static void asynchronousStartElection(List<Drone> drones, Drone drone){
+        Drone successivo = takeDroneSuccessivo(drone, drones);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
+
+            ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
+
+            ElectionMessage electionMessage = ElectionMessage.newBuilder().setIdCurrentMaster(drone.getId()).build();
+
+            stub.sendElection(electionMessage, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    channel.shutdownNow();
+                    //drones.remove(successivo);
+                    //asynchronousStartElection(drones, drone);
+                    //LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
@@ -285,7 +329,6 @@ public class DroneClient{
                 e.printStackTrace();
             }
         });
-
     }
 
     private static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) {

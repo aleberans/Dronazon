@@ -115,6 +115,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                         channel.shutdownNow();
                         if (takeDroneSuccessivo(d, drones).getIsMaster()){
                             Drone masterCaduto = takeDroneSuccessivo(d, drones);
+                            LOGGER.info("IL DRONE PRIMA DEL MASTER SI È ACCORTO CHE IL MASTER È CADUTO, INDICE UNA NUOVA ELEZIONE");
                             startElection(drones, d, masterCaduto);
                         }
                         drones.remove(takeDroneSuccessivo(d, drones));
@@ -153,7 +154,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) {
         drones.remove(masterCaduto);
 
-        //ELETTO QUELLO CON BATTERIA MAGGIORE
         asynchronousStartElection(drones, drone);
     }
 
@@ -175,9 +175,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();
-                    drones.remove(successivo);
-                    asynchronousStartElection(drones, drone);
-                    LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
+                    //drones.remove(successivo);
+                    //asynchronousStartElection(drones, drone);
+                    //LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
                 }
 
                 @Override

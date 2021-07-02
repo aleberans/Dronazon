@@ -27,7 +27,6 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      */
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
-
         if (drones.contains(takeDroneFromId(drones, sendStat.getIdDrone()))) {
             /*LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
                             "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");*/
