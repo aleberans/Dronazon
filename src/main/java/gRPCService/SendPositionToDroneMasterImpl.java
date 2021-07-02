@@ -50,4 +50,6 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
         }
         return null;
     }
+
+
 }

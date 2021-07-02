@@ -5,6 +5,8 @@ import REST.beans.Drone;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
 import com.example.grpc.SendPositionToDroneMasterGrpc;
+import com.example.grpc.SendPositionToDroneMasterGrpc.*;
+import com.example.grpc.SendUpdatedInfoToMasterGrpc;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -27,6 +29,15 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         this.drones = drones;
     }
 
+    /**
+     * Imposto lato ricezione del messaggio come master il drone che ha l'id del messaggio che arriva.
+     * Se arriva al drone che non è designato ad essere master imposto il nuovo master,
+     * mando la posizione e la batteria residura al master e inoltro il messaggio al drone successivo che farà esattamewnte la stessa cosa.
+     * Altrimenti significa che il messaggio è tornato al drone designato come nuovo master
+     * devo aggiornare la sua lista dei droni attivi
+     * @param idMaster
+     * @param streamObserver
+     */
     public void sendNewIdMaster(IdMaster idMaster, StreamObserver<ackMessage> streamObserver){
 
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
@@ -39,8 +50,48 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             LOGGER.info("ID MASTER DOPO SETTAGGIO: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
-            asynchronousSendPositionToMaster(drone.getId(), drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza(), drone.getDroneMaster());
+            asynchronousSendPositionToMaster(drone.getId(),
+                    drones.get(drones.indexOf(findDrone(drones, drone))).getPosizionePartenza(),
+                    drone.getDroneMaster());
+
+            asynchronousSendInfoAggiornateToNewMaster(drone);
         }
+    }
+
+    private void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
+
+            SendUpdatedInfoToMasterGrpc.SendUpdatedInfoToMasterStub stub = SendUpdatedInfoToMasterGrpc.newStub(channel);
+
+            Info.Posizione newPosizione = Info.Posizione.newBuilder().setX(drone.getPosizionePartenza().x).setY(drone.getPosizionePartenza().y).build();
+
+            Info info = Info.newBuilder().setId(drone.getId()).setPosizione(newPosizione).setBatteria(drone.getBatteria()).build();
+
+            stub.updatedInfo(info, new StreamObserver<ackMessage>() {
+                @Override
+                public void onNext(ackMessage value) {
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(1, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void forwardNewIdMaster(IdMaster idMaster){
@@ -106,7 +157,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" +master.getPortaAscolto()).usePlaintext().build();
-            SendPositionToDroneMasterGrpc.SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
+            SendPositionToDroneMasterStub stub = SendPositionToDroneMasterGrpc.newStub(channel);
 
             SendPositionToMaster.Posizione pos = SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
 

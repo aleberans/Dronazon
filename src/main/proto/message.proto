@@ -55,10 +55,22 @@ message SendStat{
 
 message ElectionMessage{
   required int32 idCurrentMaster = 1;
+
 }
 
 message IdMaster{
   required int32 idNewMaster = 1;
+}
+
+message Info{
+  required int32 id=3;
+  required Posizione posizione=1;
+  required int32 batteria = 2;
+
+  message Posizione{
+    required int32 x=1;
+    required int32 y=2;
+  }
 }
 
 service DronePresentation{
@@ -93,6 +105,10 @@ service Election{
 
 service NewIdMaster{
   rpc sendNewIdMaster(IdMaster) returns (ackMessage);
+}
+
+service SendUpdatedInfoToMaster{
+  rpc updatedInfo(Info) returns (ackMessage);
 }
 
 

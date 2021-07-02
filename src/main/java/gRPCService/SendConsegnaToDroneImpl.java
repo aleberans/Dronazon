@@ -3,6 +3,7 @@ package gRPCService;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
+import REST.beans.Statistic;
 import com.example.grpc.ElectionGrpc;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
@@ -19,11 +20,14 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttException;
 
 import java.awt.*;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -36,18 +40,32 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private final Drone drone;
     private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private double kmPercorsiConsenga;
-    private QueueOrdini queueOrdini;
+    private final QueueOrdini queueOrdini;
     private static final String LOCALHOST = "localhost";
+    private static final String broker = "tcp://localhost:1883";
+    private static final String clientId = MqttClient.generateClientId();
+    private static MqttClient client = null;
+    private final Object sync;
 
-    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini){
+    static {
+        try {
+            client = new MqttClient(broker, clientId);
+        } catch (MqttException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini, MqttClient client, Object sync){
         this.drones = drones;
         this.drone = drone;
         this.queueOrdini = queueOrdini;
+        this.client = client;
+        this.sync = sync;
     }
 
 
     @Override
-    public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver) {
+    public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver ) {
 
         drone.setInDeliveryOrForwaring(true);
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
@@ -78,6 +96,38 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 e.printStackTrace();
             }
         }
+    }
+
+    private void quitDroneMaster() throws InterruptedException {
+        LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
+        synchronized (drone){
+            if (drone.isInDeliveryOrForwaring()) {
+                LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
+                drone.wait();
+                LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+            }
+        }
+        try {
+            client.disconnect();
+        } catch (MqttException e) {
+            LOGGER.info("MASTER DISCONNESSO DAL BROKER");
+        }
+        synchronized (queueOrdini){
+            if (queueOrdini.size() > 0){
+                LOGGER.info("CI SONO ANCORA CONSEGNE DA GESTIRE, WAIT...");
+                queueOrdini.wait();
+            }
+        }
+        if (!thereIsDroneLibero(drones)){
+            LOGGER.info("CI SONO ANCORA DRONI OCCUPATI CHE STANNO CONSEGNANDO, WAIT...");
+            synchronized (sync){
+                sync.wait();
+            }
+        }
+        sendStatistics(drones);
+        removeDroneServer(drone);
+        LOGGER.info("IL DRONE MASTER È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+        System.exit(0);
     }
 
     private static void removeDroneServer(Drone drone){
@@ -257,22 +307,26 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onCompleted() {
                     drone.setInDeliveryOrForwaring(false);
-                    checkBatteryDrone(drone);
+                    try {
+                        checkBatteryDrone(drone);
+                    } catch (MqttException | InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     channel.shutdown();
                 }
             });
             try {
-                channel.awaitTermination(10, TimeUnit.SECONDS);
+                channel.awaitTermination(1, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         });
-
     }
 
-    private void checkBatteryDrone(Drone drone) {
-        if (!drone.getIsMaster()){
-            if (drone.getBatteria()<= 15){
+    private void checkBatteryDrone(Drone drone) throws MqttException, InterruptedException {
+        if (drone.getBatteria()<= 15){
+            if (!drone.getIsMaster()){
+                LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
                 synchronized (drone){
                     if (drone.isInDeliveryOrForwaring()){
                         try {
@@ -286,8 +340,46 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 removeDroneServer(drone);
                 LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
                 System.exit(0);
+            }else {
+                quitDroneMaster();
             }
         }
+    }
+
+    private static boolean thereIsDroneLibero(List<Drone> drones){
+        for(Drone d: drones){
+            if (!d.isOccupato()) {
+                //LOGGER.info("TROVATO DRONE");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static String sendStatistics(List<Drone> drones){
+        Client client = Client.create();
+        WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
+
+        Date date = new Date();
+        Timestamp ts = new Timestamp(date.getTime());
+
+        int mediaCountConsegne = 0;
+        double mediaKmPercorsi = 0.0;
+        int mediaInquinamento = 0;
+        int mediaBatteriaResidua = 0;
+        int countDroniAttivi = 0;
+
+        mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
+        mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
+        mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
+        countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
+
+        Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
+                mediaKmPercorsi / countDroniAttivi,
+                mediaInquinamento,
+                mediaBatteriaResidua/countDroniAttivi);
+        ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
+        return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
     private static Drone findDrone(List<Drone> drones, Drone drone){

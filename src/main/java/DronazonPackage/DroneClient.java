@@ -81,11 +81,12 @@ public class DroneClient{
                     .addService(new DronePresentationImpl(drones))
                     .addService(new SendWhoIsMasterImpl(drones, drone))
                     .addService(new SendPositionToDroneMasterImpl(drones))
-                    .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini))
+                    .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync))
                     .addService(new SendInfoAfterConsegnaImpl(drones, sync))
                     .addService(new PingAliveImpl())
-                    .addService(new ElectionImpl(drone, drones))
+                    .addService(new ElectionImpl(drone, drones, sync))
                     .addService(new NewIdMasterImpl(drones, drone))
+                    .addService(new SendUpdatedInfoToMasterImpl(drones, drone))
                     .build();
             server.start();
             }catch (BindException b){
@@ -263,7 +264,8 @@ public class DroneClient{
 
             ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
 
-            ElectionMessage electionMessage = ElectionMessage.newBuilder().setIdCurrentMaster(drone.getId()).build();
+            ElectionMessage electionMessage = ElectionMessage.newBuilder()
+                    .setIdCurrentMaster(drone.getId()).build();
 
             stub.sendElection(electionMessage, new StreamObserver<ackMessage>() {
                 @Override
@@ -276,7 +278,7 @@ public class DroneClient{
                     channel.shutdownNow();
                     //drones.remove(successivo);
                     //asynchronousStartElection(drones, drone);
-                    //LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
+                    LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
                 }
 
                 @Override
@@ -414,6 +416,11 @@ public class DroneClient{
                             break;
                         }else{
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
+                            synchronized (drones) {
+                                if (drones.size() == 1)
+                                    LOGGER.info("IL DRONE NON PUÒ USCIRE PERCHÈ C'È SOLO LUI CHE PUÒ FARE LE CONSEGNE MA NON HA PIÙ BATTERIA, WAIT...");
+                                drones.wait();
+                            }
                             synchronized (drone){
                                 if (drone.isInDeliveryOrForwaring()) {
                                     LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");

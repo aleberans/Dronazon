@@ -22,9 +22,12 @@ public class SendWhoIsMasterImpl extends SendWhoIsMasterImplBase {
 
         Drone droneMaster = drone.getDroneMaster();
 
+
         WhoIsMaster idMaster = WhoIsMaster.newBuilder().setIdMaster(droneMaster.getId()).build();
         streamObserver.onNext(idMaster);
         streamObserver.onCompleted();
+
+
     }
 
 }

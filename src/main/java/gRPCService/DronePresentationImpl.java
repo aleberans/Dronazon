@@ -10,7 +10,7 @@ import java.util.List;
 
 public class DronePresentationImpl extends DronePresentationImplBase{
 
-    private List<Drone> drones;
+    private final List<Drone> drones;
 
     public DronePresentationImpl(List<Drone> drones){
         this.drones = drones;
@@ -26,6 +26,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
 
         //Riordino la lista dopo aver aggiunto il drone che si è inserito
         drones.sort(Comparator.comparingInt(Drone::getId));
+
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }
