@@ -19,15 +19,11 @@ public class SendWhoIsMasterImpl extends SendWhoIsMasterImplBase {
 
     @Override
     public void master(WhoMaster master, StreamObserver<WhoIsMaster> streamObserver) {
-
         Drone droneMaster = drone.getDroneMaster();
-
 
         WhoIsMaster idMaster = WhoIsMaster.newBuilder().setIdMaster(droneMaster.getId()).build();
         streamObserver.onNext(idMaster);
         streamObserver.onCompleted();
-
-
     }
 
 }
