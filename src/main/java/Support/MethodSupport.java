@@ -2,7 +2,9 @@ package Support;
 
 import REST.beans.Drone;
 
+import java.awt.*;
 import java.util.List;
+import java.util.Random;
 
 public class MethodSupport {
 
@@ -42,7 +44,7 @@ public class MethodSupport {
      */
     public static boolean thereIsDroneLibero(List<Drone> drones){
         for(Drone d: drones){
-            if (!d.isOccupato()) {
+            if (d.consegnaGiaAssegnata()) {
                 return true;
             }
         }
@@ -56,5 +58,14 @@ public class MethodSupport {
 
     public static Drone getDroneFromList(int id, List<Drone> drones){
         return drones.get(drones.indexOf(MethodSupport.takeDroneFromId(drones, id)));
+    }
+
+    public static List<Drone> updatePositionPartenzaDrone(List<Drone> drones, Drone drone){
+        Random rnd = new Random();
+        Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
+        drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone))).setPosizionePartenza(posizionePartenza);
+
+        drone.setPosizionePartenza(posizionePartenza);
+        return drones;
     }
 }

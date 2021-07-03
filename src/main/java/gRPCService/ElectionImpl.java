@@ -7,6 +7,8 @@ import REST.beans.Drone;
 import REST.beans.Statistic;
 import Support.AsynchronousMedthods;
 import Support.MethodSupport;
+import Support.MqttMethods;
+import Support.ServerMethods;
 import com.example.grpc.ElectionGrpc;
 import com.example.grpc.ElectionGrpc.*;
 import com.example.grpc.Message.*;
@@ -54,6 +56,7 @@ public class ElectionImpl extends ElectionImplBase {
         ElectionImpl.sync = sync;
     }
 
+    //RIFARE QUA
     @Override
     public void sendElection(ElectionMessage electionMessage, StreamObserver<ackMessage> streamObserver){
 
@@ -72,7 +75,7 @@ public class ElectionImpl extends ElectionImplBase {
         }
         else{
             electionCompleted(drone, currentIdMaster, drones);
-            subTopic("dronazon/smartcity/orders/", client);
+            MqttMethods.subTopic("dronazon/smartcity/orders/", client, clientId, queueOrdini);
             SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
             sendConsegnaThread.start();
             drone.setIsMaster(true);
@@ -117,7 +120,7 @@ public class ElectionImpl extends ElectionImplBase {
         @Override
         public void run(){
             while(true){
-                sendStatistics(drones);
+                ServerMethods.sendStatistics(drones);
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
@@ -125,84 +128,6 @@ public class ElectionImpl extends ElectionImplBase {
                 }
             }
         }
-    }
-
-    public static String sendStatistics(List<Drone> drones){
-        Client client = Client.create();
-        WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
-
-        Date date = new Date();
-        Timestamp ts = new Timestamp(date.getTime());
-
-        int mediaCountConsegne = 0;
-        double mediaKmPercorsi = 0.0;
-        int mediaInquinamento = 0;
-        int mediaBatteriaResidua = 0;
-        int countDroniAttivi = 0;
-
-        mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
-        mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
-        mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
-        countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
-
-        Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
-                mediaKmPercorsi / countDroniAttivi,
-                mediaInquinamento,
-                mediaBatteriaResidua/countDroniAttivi);
-        ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
-        return "Output from Server .... \n" + response.getEntity(String.class);
-    }
-
-    private static void subTopic(String topic, MqttClient client) {
-        int qos = 0;
-        try {
-            MqttConnectOptions connectOptions = new MqttConnectOptions();
-            connectOptions.setCleanSession(true);
-
-            client.connect();
-
-            client.setCallback(new MqttCallback() {
-                @Override
-                public void connectionLost(Throwable cause) {
-                    LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
-                }
-
-                @Override
-                public void messageArrived(String topic, MqttMessage message) {
-                    String time = new Timestamp(System.currentTimeMillis()).toString();
-                    String receivedMessage = new String(message.getPayload());
-                    /*LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
-                            "\n\tTime:    " + time +
-                            "\n\tTopic:   " + topic +
-                            "\n\tMessage: " + receivedMessage +
-                            "\n\tQoS:     " + message.getQos() + "\n");*/
-
-                    Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
-
-                    queueOrdini.add(ordine);
-                    //LOGGER.info("ordini:" + queueOrdini);
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken token) {
-
-                }
-            });
-
-            //LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
-            client.subscribe(topic,qos);
-            LOGGER.info(clientId + " Subscribed to topics : " + topic);
-
-        } catch (MqttException me) {
-            LOGGER.info("reason " + me.getReasonCode());
-            LOGGER.info("msg " + me.getMessage());
-            LOGGER.info("loc " + me.getLocalizedMessage());
-            LOGGER.info("cause " + me.getCause());
-            LOGGER.info("excep " + me);
-            me.printStackTrace();
-
-        }
-
     }
 
     private void forwardElection(Drone drone, int updateIdMAster, List<Drone> drones){

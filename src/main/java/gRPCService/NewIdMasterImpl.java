@@ -40,6 +40,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
      * @param idMaster
      * @param streamObserver
      */
+    @Override
     public void sendNewIdMaster(IdMaster idMaster, StreamObserver<ackMessage> streamObserver){
 
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());

@@ -254,7 +254,7 @@ public class AsynchronousMedthods {
                     .build();
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setOccupato(true);
+            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaGiaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
@@ -313,8 +313,6 @@ public class AsynchronousMedthods {
         ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
         ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
         ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
-        int count2 = 0;
-        int count = 0;
 
         if (!MethodSupport.thereIsDroneLibero(drones)){
             //LOGGER.info("IN WAIT");
@@ -324,7 +322,7 @@ public class AsynchronousMedthods {
         }
 
         for (Drone d: drones){
-            if (!d.isOccupato()){
+            if (!d.consegnaGiaAssegnata()){
                 lista.add(d);
             }
         }

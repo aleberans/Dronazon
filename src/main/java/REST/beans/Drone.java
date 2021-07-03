@@ -18,7 +18,7 @@ public class Drone {
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
-    @JsonIgnore private boolean isOccupato = false;
+    @JsonIgnore private boolean consegnaGiaAssegnata = false;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
     @JsonIgnore private int countConsegne = 0;
     @JsonIgnore private boolean isInDeliveryOrForwaring = false;
@@ -91,19 +91,19 @@ public class Drone {
                 ", isMaster=" + isMaster +
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
-                ", isOccupato=" + isOccupato +
+                ", consegnaGiaAssegnata =" + consegnaGiaAssegnata +
                 ", kmPercorsiSingoloDrone=" + kmPercorsiSingoloDrone +
                 ", countConsegne=" + countConsegne +
                 ", isInDeliveryOrForwaring=" + isInDeliveryOrForwaring +
                 '}';
     }
 
-    public boolean isOccupato() {
-        return isOccupato;
+    public boolean consegnaGiaAssegnata() {
+        return consegnaGiaAssegnata;
     }
 
-    public void setOccupato(boolean occupato) {
-        isOccupato = occupato;
+    public void setConsegnaGiaAssegnata(boolean consegnaGiaAssegnata) {
+        this.consegnaGiaAssegnata = consegnaGiaAssegnata;
     }
 
     public int getCountConsegne() {

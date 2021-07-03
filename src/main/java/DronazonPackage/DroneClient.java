@@ -4,6 +4,8 @@ import REST.beans.Drone;
 import REST.beans.Statistic;
 import Support.AsynchronousMedthods;
 import Support.MethodSupport;
+import Support.MqttMethods;
+import Support.ServerMethods;
 import com.example.grpc.*;
 import com.example.grpc.DronePresentationGrpc.*;
 import com.example.grpc.Message.*;
@@ -66,8 +68,8 @@ public class DroneClient{
             Drone drone = new Drone(id, portaAscolto, LOCALHOST);
 
             LOGGER.info("ID DRONE: " + drone.getId());
-            List<Drone> drones = addDroneServer(drone);
-            drones = updatePositionDrone(drones, drone);
+            List<Drone> drones = ServerMethods.addDroneServer(drone);
+            drones = MethodSupport.updatePositionPartenzaDrone(drones, drone);
             //LOGGER.info("POSIZIONE INZIALE MAIN:" + drone.getPosizionePartenza());
             if (drones.size()==1){
                 drone.setIsMaster(true);
@@ -100,7 +102,7 @@ public class DroneClient{
 
             if (drone.getIsMaster()) {
                 LOGGER.info("Sono il primo master");
-                subTopic("dronazon/smartcity/orders/", client);
+                MqttMethods.subTopic("dronazon/smartcity/orders/", client, clientId, queueOrdini);
 
                 SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
                 sendConsegnaThread.start();
@@ -140,7 +142,7 @@ public class DroneClient{
         @Override
         public void run(){
             while(true){
-                sendStatistics(drones);
+                ServerMethods.sendStatistics(drones);
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
@@ -240,7 +242,7 @@ public class DroneClient{
                                     LOGGER.info("IL DRONE E' IN FASE DI USCITA");
                                 }
                             }
-                            removeDroneServer(drone);
+                            ServerMethods.removeDroneServer(drone);
                             break;
                         }else{
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
@@ -264,8 +266,8 @@ public class DroneClient{
                                     sync.wait();
                                 }
                             }
-                            removeDroneServer(drone);
-                            sendStatistics(drones);
+                            ServerMethods.removeDroneServer(drone);
+                            ServerMethods.sendStatistics(drones);
                             break;
                         }
                     }
@@ -275,145 +277,6 @@ public class DroneClient{
             }
             LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
             System.exit(0);
-        }
-    }
-
-    private static void subTopic(String topic, MqttClient client) {
-        int qos = 0;
-        try {
-            MqttConnectOptions connectOptions = new MqttConnectOptions();
-            connectOptions.setCleanSession(true);
-
-            client.connect();
-
-            client.setCallback(new MqttCallback() {
-                @Override
-                public void connectionLost(Throwable cause) {
-                    LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
-                }
-
-                @Override
-                public void messageArrived(String topic, MqttMessage message) {
-                    String time = new Timestamp(System.currentTimeMillis()).toString();
-                    String receivedMessage = new String(message.getPayload());
-                    /*LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
-                            "\n\tTime:    " + time +
-                            "\n\tTopic:   " + topic +
-                            "\n\tMessage: " + receivedMessage +
-                            "\n\tQoS:     " + message.getQos() + "\n");*/
-
-                    Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
-
-                    queueOrdini.add(ordine);
-                    //LOGGER.info("ordini:" + queueOrdini);
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken token) {
-
-                }
-            });
-
-            //LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
-            client.subscribe(topic,qos);
-            LOGGER.info(clientId + " Subscribed to topics : " + topic);
-
-        } catch (MqttException me) {
-            LOGGER.info("reason " + me.getReasonCode());
-            LOGGER.info("msg " + me.getMessage());
-            LOGGER.info("loc " + me.getLocalizedMessage());
-            LOGGER.info("cause " + me.getCause());
-            LOGGER.info("excep " + me);
-            me.printStackTrace();
-
-        }
-
-    }
-
-
-
-    /**
-     * Calcolo il drone più vicino al punto di ritiro della consegna
-     * il drone non deve essere occupato. Viene scelto il drone più vicino con maggiore livello di batteria.
-     * Nel caso ci siano più droni con queste caratteristiche viene preso quello con id maggiore.
-     */
-
-    public static String sendStatistics(List<Drone> drones){
-        Client client = Client.create();
-        WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
-
-        Date date = new Date();
-        Timestamp ts = new Timestamp(date.getTime());
-
-        int mediaCountConsegne = 0;
-        double mediaKmPercorsi = 0.0;
-        int mediaInquinamento = 0;
-        int mediaBatteriaResidua = 0;
-        int countDroniAttivi = 0;
-
-        mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
-        mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
-        mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
-        countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
-
-        Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
-                mediaKmPercorsi / countDroniAttivi,
-                mediaInquinamento,
-                mediaBatteriaResidua/countDroniAttivi);
-        ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
-        return "Output from Server .... \n" + response.getEntity(String.class);
-    }
-
-    /**
-     * @param drone
-     * @return
-     * Il drone viene aggiunto al server
-     */
-    public static List<Drone> addDroneServer(Drone drone){
-        ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-        clientConfig.getClasses().add(JacksonJsonProvider.class);
-        Client client = Client.create(clientConfig);
-
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
-
-        ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
-
-        return response.getEntity(new GenericType<List<Drone>>() {});
-    }
-
-    /**
-     * @param drones
-     * @param drone
-     * @return
-     * Aggiorna la posizione del drone all'interno della lista dei droni
-     * Aggiorna inoltre l'attributo della posizione del singolo drone
-     */
-    public static List<Drone> updatePositionDrone(List<Drone> drones, Drone drone){
-        Random rnd = new Random();
-        Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
-        drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone))).setPosizionePartenza(posizionePartenza);
-
-        drone.setPosizionePartenza(posizionePartenza);
-        return drones;
-    }
-
-    /**
-     * @param drone
-     * Rimuove il drone dal server a seguito della "quit"
-     */
-    private static void removeDroneServer(Drone drone){
-        ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-        clientConfig.getClasses().add(JacksonJsonProvider.class);
-        Client client = Client.create(clientConfig);
-
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
-
-        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
-
-        if (response.getStatus() != 200){
-            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
         }
     }
 }

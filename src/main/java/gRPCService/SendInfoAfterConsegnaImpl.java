@@ -26,6 +26,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      * @param streamObserver
      * Gestisce le informazioni che riceve dai droni che hanno eseguito una consegna aggiornando le informazioni nella lista dei droni
      */
+    @Override
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
         //aggiorno la batteria, km percorsi e count del drone che ha effettuato la consegna nella lista
         MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
@@ -38,7 +39,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             /*LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
                             "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");*/
 
-            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setOccupato(false);
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaGiaAssegnata(false);
             synchronized (sync){
                 sync.notify();
                 //LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
