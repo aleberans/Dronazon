@@ -54,7 +54,8 @@ message SendStat{
 }
 
 message ElectionMessage{
-  required int32 idCurrentMaster = 1;
+  required int32 batteriaResidua = 1;
+  required int32 idCurrentMaster = 2;
 
 }
 

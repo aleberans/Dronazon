@@ -11,6 +11,7 @@ import Support.MqttMethods;
 import Support.ServerMethods;
 import com.example.grpc.ElectionGrpc;
 import com.example.grpc.ElectionGrpc.*;
+import com.example.grpc.Message;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
@@ -56,24 +57,36 @@ public class ElectionImpl extends ElectionImplBase {
         ElectionImpl.sync = sync;
     }
 
-    //RIFARE QUA
     @Override
-    public void sendElection(ElectionMessage electionMessage, StreamObserver<ackMessage> streamObserver){
+    public void sendElection(ElectionMessage electionMessage,  StreamObserver<ackMessage> streamObserver){
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
         streamObserver.onNext(message);
         streamObserver.onCompleted();
+
+        int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
 
-        if (currentIdMaster < drone.getId()) {
-            LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER");
-            forwardElection(drone, drone.getId(), drones);
+        if (currentBatteriaResidua < drone.getBatteria()) {
+            forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
+            LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE");
         }
-        else if (currentIdMaster > drone.getId()) {
-            forwardElection(drone, currentIdMaster, drones);
-            LOGGER.info("ID DEL DRONE È + PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
+        else if (currentBatteriaResidua > drone.getBatteria()) {
+            forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
+            LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
         }
-        else{
+        else {
+            LOGGER.info("TROVATO DRONE CON BATTERIA UGUALE");
+            if (currentIdMaster < drone.getId()) {
+                LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER");
+                forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
+            } else if (currentIdMaster > drone.getId()) {
+                forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
+                LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
+            }
+        }
+        //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
+        if (currentIdMaster == drone.getId()){
             electionCompleted(drone, currentIdMaster, drones);
             MqttMethods.subTopic("dronazon/smartcity/orders/", client, clientId, queueOrdini);
             SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
@@ -81,10 +94,9 @@ public class ElectionImpl extends ElectionImplBase {
             drone.setIsMaster(true);
             SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones);
             sendStatisticToServer.start();
-
+            LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
         }
 
-            LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
     }
 
     static class SendConsegnaThread extends Thread {
@@ -101,7 +113,7 @@ public class ElectionImpl extends ElectionImplBase {
         public void run(){
             while (true) {
                 try {
-                    AsynchronousMedthods.asynchronousSendConsegna(drones, drone, queueOrdini, sync);
+                    asynchronousSendConsegna(drones, drone);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -130,7 +142,7 @@ public class ElectionImpl extends ElectionImplBase {
         }
     }
 
-    private void forwardElection(Drone drone, int updateIdMAster, List<Drone> drones){
+    private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua, List<Drone> drones){
 
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
@@ -138,8 +150,11 @@ public class ElectionImpl extends ElectionImplBase {
 
             ElectionStub stub = ElectionGrpc.newStub(channel);
 
-            ElectionMessage newElectionMessage = ElectionMessage.newBuilder()
-                    .setIdCurrentMaster(updateIdMAster).build();
+            ElectionMessage newElectionMessage = ElectionMessage
+                    .newBuilder()
+                    .setIdCurrentMaster(updateIdMAster)
+                    .setBatteriaResidua(updatedBatteriaResidua)
+                    .build();
 
             stub.sendElection(newElectionMessage, new StreamObserver<ackMessage>() {
                 @Override
@@ -151,7 +166,7 @@ public class ElectionImpl extends ElectionImplBase {
                 public void onError(Throwable t) {
                     channel.shutdownNow();
                     drones.remove(successivo);
-                    forwardElection(drone, updateIdMAster ,drones);
+                    forwardElection(drone, updateIdMAster, updatedBatteriaResidua,drones);
                 }
 
                 @Override
@@ -206,6 +221,159 @@ public class ElectionImpl extends ElectionImplBase {
                 e.printStackTrace();
             }
         });
+    }
+
+    public static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
+
+        Drone drone = null;
+        ArrayList<Drone> lista = new ArrayList<>();
+        ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
+        ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
+        ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
+
+        if (!MethodSupport.thereIsDroneLibero(drones)){
+            //LOGGER.info("IN WAIT");
+            synchronized (sync){
+                sync.wait();
+            }
+        }
+
+        for (Drone d: drones){
+            if (d.consegnaNonAssegnata()){
+                lista.add(d);
+            }
+        }
+
+        //creo le varie liste
+        for (Drone d: lista){
+            coppieDistanza.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
+            coppieBatteria.add(new Pair<>(d, d.getBatteria()));
+            coppieIdMaggiore.add(new Pair<>(d, d.getId()));
+        }
+
+        Optional<Pair<Drone, Double>> droneMinDistance = coppieDistanza.stream()
+                .min(Comparator.comparing(Pair::getValue));
+
+        Optional<Pair<Drone, Integer>> droneMaxBatteria = coppieBatteria.stream()
+                .max(Comparator.comparing(Pair::getValue));
+
+        Optional<Pair<Drone, Integer>> droneMaxId = coppieIdMaggiore.stream()
+                .max(Comparator.comparing(Pair::getValue));
+
+
+
+        Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
+        drone = droneDistanzaMinima.getKey();
+        //LOGGER.info("SOLO UN DRONE CON DISTANZA MINIMA");
+        return drone;
+    }
+
+    public static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
+        Drone d = MethodSupport.takeDroneFromList(drone, drones);
+        Ordine ordine = queueOrdini.consume();
+
+        Drone successivo = MethodSupport.takeDroneSuccessivo(d, drones);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
+            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
+
+            Message.Consegna.Posizione posizioneRitiro = Message.Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoRitiro().x)
+                    .setY(ordine.getPuntoRitiro().y)
+                    .build();
+
+            Message.Consegna.Posizione posizioneConsegna = Message.Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoConsegna().x)
+                    .setY(ordine.getPuntoConsegna().y)
+                    .build();
+
+            Drone droneACuiConsegnare = null;
+            try {
+                droneACuiConsegnare = test(drones, ordine);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Message.Consegna consegna = Message.Consegna.newBuilder()
+                    .setIdConsegna(ordine.getId())
+                    .setPuntoRitiro(posizioneRitiro)
+                    .setPuntoConsegna(posizioneConsegna)
+                    .setIdDrone(droneACuiConsegnare.getId())
+                    .build();
+
+            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaNonAssegnata(false);
+
+            //tolgo la consegna dalla coda delle consegne
+            queueOrdini.remove(ordine);
+
+            synchronized (queueOrdini){
+                if (queueOrdini.size() == 0)
+                    //LOGGER.info("CODA COMPLETAMENTE SVUOTATA");
+                    queueOrdini.notify();
+            }
+            stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
+                @Override
+                public void onNext(Message.ackMessage value) {
+                    //LOGGER.info(value.getMessage());
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    try {
+                        channel.shutdownNow();
+                        /*LOGGER.info("LO STATO DELLA LISTA È: " + getAllIdDroni(drones) +
+                                "\n IL DRONE CHE STA PROVANDO A FARE LA CONSEGNA È: " + d.getId() +
+                                "\n IL DRONE SUCCESSIVO A LUI È: " + takeDroneSuccessivo(d, drones).getId());*/
+                        drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        //LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + getAllIdDroni(drones));
+                        asynchronousSendConsegna(drones, d);
+                    } catch (InterruptedException e) {
+                        try {
+                            e.printStackTrace();
+                            LOGGER.info("Error" + t.getMessage());
+                            LOGGER.info("Error" + t.getCause());
+                            LOGGER.info("Error" + t.getLocalizedMessage());
+                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                            channel.awaitTermination(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException interruptedException) {
+                            interruptedException.printStackTrace();
+                        }
+
+                    }
+                }
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public static Drone test(List<Drone> drones, Ordine ordine) throws InterruptedException {
+
+        if (!MethodSupport.thereIsDroneLibero(drones)){
+            LOGGER.info("IN WAIT");
+            synchronized (sync){
+                sync.wait();
+            }
+        }
+        List<Drone> droni = new ArrayList<>(drones);
+
+        droni.sort(Comparator.comparing(Drone::getBatteria)
+                .thenComparing(Drone::getId));
+        droni.sort(Collections.reverseOrder());
+
+        //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
+        droni.removeIf(d -> d.getIsMaster() & d.getBatteria() < 15);
+
+        return droni.stream().filter(Drone::consegnaNonAssegnata)
+                .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .orElse(null);
     }
 
 }

@@ -39,7 +39,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             /*LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
                             "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");*/
 
-            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaGiaAssegnata(false);
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaNonAssegnata(true);
             synchronized (sync){
                 sync.notify();
                 //LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
@@ -49,11 +49,11 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             LOGGER.info("IL DRONE È USCITO");
 
         //aggiorno la posizione del drone nella lista di droni
-        Point pos = new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY());
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setPosizionePartenza(pos);
-
+        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones)
+                .setPosizionePartenza(
+                        new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
+                );
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
-
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }

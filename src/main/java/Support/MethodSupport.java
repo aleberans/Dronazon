@@ -8,6 +8,8 @@ import java.util.Random;
 
 public class MethodSupport {
 
+    private final Random rnd = new Random();
+
     public static String getAllIdDroni(List<Drone> drones){
         StringBuilder id = new StringBuilder();
         for (Drone d: drones){
@@ -44,7 +46,7 @@ public class MethodSupport {
      */
     public static boolean thereIsDroneLibero(List<Drone> drones){
         for(Drone d: drones){
-            if (d.consegnaGiaAssegnata()) {
+            if (d.consegnaNonAssegnata()) {
                 return true;
             }
         }
@@ -68,4 +70,5 @@ public class MethodSupport {
         drone.setPosizionePartenza(posizionePartenza);
         return drones;
     }
+
 }

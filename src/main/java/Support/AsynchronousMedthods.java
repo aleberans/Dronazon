@@ -72,8 +72,11 @@ public class AsynchronousMedthods {
 
             ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
 
-            Message.ElectionMessage electionMessage = Message.ElectionMessage.newBuilder()
-                    .setIdCurrentMaster(drone.getId()).build();
+            Message.ElectionMessage electionMessage = Message.ElectionMessage
+                    .newBuilder()
+                    .setIdCurrentMaster(drone.getId())
+                    .setBatteriaResidua(drone.getBatteria())
+                    .build();
 
             stub.sendElection(electionMessage, new StreamObserver<Message.ackMessage>() {
                 @Override
@@ -217,137 +220,5 @@ public class AsynchronousMedthods {
                 e.printStackTrace();
             }
         });
-
-    }
-
-    public static void asynchronousSendConsegna(List<Drone> drones, Drone drone, QueueOrdini queueOrdini, Object sync) throws InterruptedException {
-        Drone d = MethodSupport.takeDroneFromList(drone, drones);
-        Ordine ordine = queueOrdini.consume();
-
-        Drone successivo = MethodSupport.takeDroneSuccessivo(d, drones);
-        Context.current().fork().run( () -> {
-            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
-            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
-
-            Message.Consegna.Posizione posizioneRitiro = Message.Consegna.Posizione.newBuilder()
-                    .setX(ordine.getPuntoRitiro().x)
-                    .setY(ordine.getPuntoRitiro().y)
-                    .build();
-
-            Message.Consegna.Posizione posizioneConsegna = Message.Consegna.Posizione.newBuilder()
-                    .setX(ordine.getPuntoConsegna().x)
-                    .setY(ordine.getPuntoConsegna().y)
-                    .build();
-
-            Drone droneACuiConsegnare = null;
-            try {
-                droneACuiConsegnare = findDroneToConsegna(drones, ordine, sync);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            Message.Consegna consegna = Message.Consegna.newBuilder()
-                    .setIdConsegna(ordine.getId())
-                    .setPuntoRitiro(posizioneRitiro)
-                    .setPuntoConsegna(posizioneConsegna)
-                    .setIdDrone(droneACuiConsegnare.getId())
-                    .build();
-
-            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaGiaAssegnata(true);
-
-            //tolgo la consegna dalla coda delle consegne
-            queueOrdini.remove(ordine);
-
-            synchronized (queueOrdini){
-                if (queueOrdini.size() == 0)
-                    //LOGGER.info("CODA COMPLETAMENTE SVUOTATA");
-                    queueOrdini.notify();
-            }
-            stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
-                @Override
-                public void onNext(Message.ackMessage value) {
-                    //LOGGER.info(value.getMessage());
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    try {
-                        channel.shutdownNow();
-                        /*LOGGER.info("LO STATO DELLA LISTA È: " + getAllIdDroni(drones) +
-                                "\n IL DRONE CHE STA PROVANDO A FARE LA CONSEGNA È: " + d.getId() +
-                                "\n IL DRONE SUCCESSIVO A LUI È: " + takeDroneSuccessivo(d, drones).getId());*/
-                        drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
-                        //LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + getAllIdDroni(drones));
-                        asynchronousSendConsegna(drones, d, queueOrdini, sync);
-                    } catch (InterruptedException e) {
-                        try {
-                            e.printStackTrace();
-                            LOGGER.info("Error" + t.getMessage());
-                            LOGGER.info("Error" + t.getCause());
-                            LOGGER.info("Error" + t.getLocalizedMessage());
-                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                            channel.awaitTermination(1, TimeUnit.SECONDS);
-                        } catch (InterruptedException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-
-                    }
-                }
-                public void onCompleted() {
-                    channel.shutdown();
-                }
-            });
-            try {
-                channel.awaitTermination(10, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    public static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine, Object sync) throws InterruptedException {
-
-        Drone drone = null;
-        ArrayList<Drone> lista = new ArrayList<>();
-        ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
-        ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
-        ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
-
-        if (!MethodSupport.thereIsDroneLibero(drones)){
-            //LOGGER.info("IN WAIT");
-            synchronized (sync){
-                sync.wait();
-            }
-        }
-
-        for (Drone d: drones){
-            if (!d.consegnaGiaAssegnata()){
-                lista.add(d);
-            }
-        }
-
-        //creo le varie liste
-        for (Drone d: lista){
-            coppieDistanza.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
-            coppieBatteria.add(new Pair<>(d, d.getBatteria()));
-            coppieIdMaggiore.add(new Pair<>(d, d.getId()));
-        }
-
-        Optional<Pair<Drone, Double>> droneMinDistance = coppieDistanza.stream()
-                .min(Comparator.comparing(Pair::getValue));
-
-        Optional<Pair<Drone, Integer>> droneMaxBatteria = coppieBatteria.stream()
-                .max(Comparator.comparing(Pair::getValue));
-
-        Optional<Pair<Drone, Integer>> droneMaxId = coppieIdMaggiore.stream()
-                .max(Comparator.comparing(Pair::getValue));
-
-
-
-        Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
-        drone = droneDistanzaMinima.getKey();
-        //LOGGER.info("SOLO UN DRONE CON DISTANZA MINIMA");
-        return drone;
     }
 }

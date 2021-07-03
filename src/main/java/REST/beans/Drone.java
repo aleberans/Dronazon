@@ -9,7 +9,7 @@ import java.awt.*;
 import java.util.ArrayList;
 
 @XmlRootElement
-public class Drone {
+public class Drone implements Comparable<Drone>{
 
     private int id;
     private int portaAscolto;
@@ -18,7 +18,7 @@ public class Drone {
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
     @JsonIgnore private Drone droneMaster;
-    @JsonIgnore private boolean consegnaGiaAssegnata = false;
+    @JsonIgnore private boolean consegnaNonAssegnata = true;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
     @JsonIgnore private int countConsegne = 0;
     @JsonIgnore private boolean isInDeliveryOrForwaring = false;
@@ -91,19 +91,19 @@ public class Drone {
                 ", isMaster=" + isMaster +
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
-                ", consegnaGiaAssegnata =" + consegnaGiaAssegnata +
+                ", consegnaNonAssegnata =" + consegnaNonAssegnata +
                 ", kmPercorsiSingoloDrone=" + kmPercorsiSingoloDrone +
                 ", countConsegne=" + countConsegne +
                 ", isInDeliveryOrForwaring=" + isInDeliveryOrForwaring +
                 '}';
     }
 
-    public boolean consegnaGiaAssegnata() {
-        return consegnaGiaAssegnata;
+    public boolean consegnaNonAssegnata() {
+        return consegnaNonAssegnata;
     }
 
-    public void setConsegnaGiaAssegnata(boolean consegnaGiaAssegnata) {
-        this.consegnaGiaAssegnata = consegnaGiaAssegnata;
+    public void setConsegnaNonAssegnata(boolean consegnaNonAssegnata) {
+        this.consegnaNonAssegnata = consegnaNonAssegnata;
     }
 
     public int getCountConsegne() {
@@ -120,6 +120,13 @@ public class Drone {
 
     public void setKmPercorsiSingoloDrone(double kmPercorsiSingoloDrone) {
         this.kmPercorsiSingoloDrone = kmPercorsiSingoloDrone;
+    }
+
+    @Override
+    public int compareTo(Drone o) {
+        if (batteria > o.getBatteria()) return 1;
+        else if (batteria == o.getBatteria() && id > o.getId()) return 1;
+        else return -1;
     }
 }
 
