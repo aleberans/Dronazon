@@ -20,7 +20,7 @@ public class QueueOrdini {
     }
 
     public synchronized Ordine consume() throws InterruptedException {
-        while (ordini.size() <=0)
+        while (ordini.isEmpty())
             wait();
 
         return ordini.get(0);

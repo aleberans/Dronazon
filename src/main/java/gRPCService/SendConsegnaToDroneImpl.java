@@ -94,37 +94,31 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
         for (Drone dr: drones) {
             synchronized (drone) {
-                if (dr.isInDeliveryOrForwaring()) {
+                while (dr.isInDeliveryOrForwaring()) {
                     LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
                     drone.wait();
                     LOGGER.info("IL DRONE E' IN FASE DI USCITA");
-                } else
-                    LOGGER.info("NON CI SONO DRONI IN DELIVERY O CONSEGNA");
+                }
             }
         }
         client.disconnect();
         LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (queueOrdini){
-            if (queueOrdini.size() > 0){
+            while (queueOrdini.size() > 0){
                 LOGGER.info("CI SONO ANCORA CONSEGNE DA GESTIRE, WAIT...");
                 queueOrdini.wait();
             }
-            else
-                LOGGER.info("LA CODA È VUOTA: " + queueOrdini);
         }
+
         synchronized (sync){
-            if (!MethodSupport.thereIsDroneLibero(drones)){
+            while (!MethodSupport.thereIsDroneLibero(drones)){
                 LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
                 sync.wait();
             }
-            else
-                LOGGER.info("TUTTI I DRONI SONO SENZA UNA COSNEGNA ASSEGNATA");
         }
         ServerMethods.sendStatistics(drones);
         ServerMethods.removeDroneServer(drone);
-        LOGGER.info("IL DRONE MASTER È USCITO PER LA BETTERIA INFERIORE DEL 15%");
-        System.exit(0);
     }
 
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
@@ -252,6 +246,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onCompleted() {
                     drone.setInDeliveryOrForwaring(false);
                     try {
+                        LOGGER.info("CHECK BATTERIA");
                         checkBatteryDrone(drone);
                     } catch (MqttException | InterruptedException e) {
                         e.printStackTrace();
@@ -268,28 +263,27 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void checkBatteryDrone(Drone d) throws MqttException, InterruptedException {
-        while (true) {
-            if (d.getBatteria() <= 15) {
-                if (!d.getIsMaster()) {
-                    LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
-                    synchronized (drone) {
-                        if (d.isInDeliveryOrForwaring()) {
-                            try {
-                                LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
-                                drone.wait();
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+        if (d.getBatteria() <= 15) {
+            if (!d.getIsMaster()) {
+                LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
+                synchronized (drone) {
+                    if (d.isInDeliveryOrForwaring()) {
+                        try {
+                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
+                            drone.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
                         }
                     }
-                    ServerMethods.removeDroneServer(d);
-                    LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
-                    System.exit(0);
-                } else {
-                    quitDroneMaster();
                 }
+                ServerMethods.removeDroneServer(d);
+                LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+                System.exit(0);
+            } else {
+                quitDroneMaster();
+                LOGGER.info("IL DRONE MASTER È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+                System.exit(0);
             }
-            break;
         }
     }
 }

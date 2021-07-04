@@ -12,7 +12,6 @@ import com.example.grpc.Message;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
-import com.google.gson.Gson;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -33,7 +32,7 @@ public class ElectionImpl extends ElectionImplBase {
     private static final String clientId = MqttClient.generateClientId();
     private static MqttClient client = null;
     private static final QueueOrdini queueOrdini = new QueueOrdini();
-    private static Object sync;
+    private final Object sync;
 
     static {
         try {
@@ -43,10 +42,10 @@ public class ElectionImpl extends ElectionImplBase {
         }
     }
 
-    public ElectionImpl(Drone drone, List<Drone> drones, Object sync ){
+    public ElectionImpl(Drone drone, List<Drone> drones, Object sync){
         this.drone = drone;
         this.drones = drones;
-        ElectionImpl.sync = sync;
+        this.sync = sync;
     }
 
     @Override
@@ -219,51 +218,6 @@ public class ElectionImpl extends ElectionImplBase {
         });
     }
 
-    public static Drone findDroneToConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
-
-        Drone drone = null;
-        ArrayList<Drone> lista = new ArrayList<>();
-        ArrayList<Pair<Drone, Double>> coppieDistanza = new ArrayList<>();
-        ArrayList<Pair<Drone, Integer>> coppieBatteria = new ArrayList<>();
-        ArrayList<Pair<Drone, Integer>> coppieIdMaggiore = new ArrayList<>();
-
-        if (!MethodSupport.thereIsDroneLibero(drones)){
-            //LOGGER.info("IN WAIT");
-            synchronized (sync){
-                sync.wait();
-            }
-        }
-
-        for (Drone d: drones){
-            if (d.consegnaNonAssegnata()){
-                lista.add(d);
-            }
-        }
-
-        //creo le varie liste
-        for (Drone d: lista){
-            coppieDistanza.add(new Pair<>(d, d.getPosizionePartenza().distance(ordine.getPuntoRitiro())));
-            coppieBatteria.add(new Pair<>(d, d.getBatteria()));
-            coppieIdMaggiore.add(new Pair<>(d, d.getId()));
-        }
-
-        Optional<Pair<Drone, Double>> droneMinDistance = coppieDistanza.stream()
-                .min(Comparator.comparing(Pair::getValue));
-
-        Optional<Pair<Drone, Integer>> droneMaxBatteria = coppieBatteria.stream()
-                .max(Comparator.comparing(Pair::getValue));
-
-        Optional<Pair<Drone, Integer>> droneMaxId = coppieIdMaggiore.stream()
-                .max(Comparator.comparing(Pair::getValue));
-
-
-
-        Pair<Drone, Double> droneDistanzaMinima = droneMinDistance.orElse(null);
-        drone = droneDistanzaMinima.getKey();
-        //LOGGER.info("SOLO UN DRONE CON DISTANZA MINIMA");
-        return drone;
-    }
-
     public static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
         Drone d = MethodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
@@ -305,8 +259,9 @@ public class ElectionImpl extends ElectionImplBase {
 
             synchronized (queueOrdini){
                 if (queueOrdini.size() == 0)
-                    queueOrdini.notify();
+                    queueOrdini.notifyAll();
             }
+
             stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
                 @Override
                 public void onNext(Message.ackMessage value) {
@@ -348,15 +303,13 @@ public class ElectionImpl extends ElectionImplBase {
 
     public static Drone test(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
-        while (true){
-            if (!MethodSupport.thereIsDroneLibero(drones)) {
-                LOGGER.info("IN WAIT");
-                synchronized (sync) {
-                    sync.wait();
-                }
+        while (!MethodSupport.thereIsDroneLibero(drones)) {
+            LOGGER.info("IN WAIT");
+            synchronized (sync) {
+                sync.wait();
             }
-            break;
         }
+
         List<Drone> droni = new ArrayList<>(drones);
 
         droni.sort(Comparator.comparing(Drone::getBatteria)

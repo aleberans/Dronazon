@@ -24,11 +24,11 @@ public class ServerMethods {
         Date date = new Date();
         Timestamp ts = new Timestamp(date.getTime());
 
-        double mediaCountConsegne = 0;
-        double mediaKmPercorsi = 0.0;
-        double mediaInquinamento = 0;
-        double mediaBatteriaResidua = 0;
-        int countDroniAttivi = 0;
+        double mediaCountConsegne;
+        double mediaKmPercorsi;
+        double mediaInquinamento;
+        double mediaBatteriaResidua;
+        int countDroniAttivi;
 
         mediaInquinamento = drones.stream().map(
                 drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)

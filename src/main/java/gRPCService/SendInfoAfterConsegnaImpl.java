@@ -45,6 +45,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
                 //LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
             }
         }
+
         else
             LOGGER.info("IL DRONE È USCITO");
 
