@@ -46,6 +46,7 @@ message SendStat{
   required int32 betteriaResidua=3;
   required string timestampArrivo=4;
   required int32 idDrone=5;
+  repeated double inquinamento=6;
 
   message Posizione{
     required int32 x=1;

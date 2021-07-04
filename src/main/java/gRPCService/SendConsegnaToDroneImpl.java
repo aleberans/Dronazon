@@ -31,22 +31,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private static final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
     private final List<Drone> drones;
     private final Drone drone;
-    private static final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private double kmPercorsiConsenga;
+    private final SimpleDateFormat sdf3 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     private final QueueOrdini queueOrdini;
-    private static final String LOCALHOST = "localhost";
-    private static final String broker = "tcp://localhost:1883";
-    private static final String clientId = MqttClient.generateClientId();
-    private static MqttClient client = null;
+    private final MqttClient client;
     private final Object sync;
 
-    static {
-        try {
-            client = new MqttClient(broker, clientId);
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-    }
 
     public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini, MqttClient client, Object sync){
         this.drones = drones;
@@ -58,10 +47,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver ) {
 
-        drone.setInDeliveryOrForwaring(true);
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();
 
+        drone.setInDeliveryOrForwaring(true);
         if (consegna.getIdDrone() == drone.getId()){
             try {
                 faiConsegna(consegna);
@@ -91,25 +80,26 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void quitDroneMaster() throws InterruptedException, MqttException {
-        LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-        for (Drone dr: drones) {
-            synchronized (drone) {
-                while (dr.isInDeliveryOrForwaring()) {
-                    LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
-                    drone.wait();
-                    LOGGER.info("IL DRONE E' IN FASE DI USCITA");
-                }
-            }
-        }
-        client.disconnect();
-        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
-
         synchronized (queueOrdini){
             while (queueOrdini.size() > 0){
-                LOGGER.info("CI SONO ANCORA CONSEGNE DA GESTIRE, WAIT...");
+                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE, WAIT..." + "\n"
+                        + queueOrdini);
                 queueOrdini.wait();
             }
         }
+        LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
+
+        for (Drone dr: drones) {
+            synchronized (drone) {
+                while (dr.isInDeliveryOrForwaring()) {
+                    LOGGER.info("CI SONO ANCORA DRONI IN CONSENGA O DELIVERY, WAIT...");
+                    drone.wait();
+                }
+            }
+        }
+        LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+        client.disconnect();
+        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (sync){
             while (!MethodSupport.thereIsDroneLibero(drones)){
@@ -184,11 +174,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
         Thread.sleep(5000);
+        LOGGER.info("CONSEGNA EFFETTUATA");
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
-        kmPercorsiConsenga = updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna);
-        drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + kmPercorsiConsenga);
-        LOGGER.info("CONSEGNA EFFETTUATA");
+        drone.setKmPercorsiSingoloDrone(updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna));
+        drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + drone.getKmPercorsiSingoloDrone());
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
@@ -226,6 +216,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     .setKmPercorsi(drone.getKmPercorsiSingoloDrone())
                     .setBetteriaResidua(drone.getBatteria())
                     .setPosizioneArrivo(pos)
+                    .addAllInquinamento(drone.getBufferPM10())
                     .build();
 
             stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
@@ -235,6 +226,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onError(Throwable t) {
+                    t.printStackTrace();
                     LOGGER.info("Error" + t.getMessage());
                     LOGGER.info("Error" + t.getCause());
                     LOGGER.info("Error" + t.getLocalizedMessage());
@@ -244,6 +236,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onCompleted() {
+                    LOGGER.info("CONSEGNA E INVIO INFORMAZIONI EFFETTUATE");
                     drone.setInDeliveryOrForwaring(false);
                     try {
                         LOGGER.info("CHECK BATTERIA");
@@ -280,6 +273,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
                 System.exit(0);
             } else {
+                LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
                 quitDroneMaster();
                 LOGGER.info("IL DRONE MASTER È USCITO PER LA BETTERIA INFERIORE DEL 15%");
                 System.exit(0);

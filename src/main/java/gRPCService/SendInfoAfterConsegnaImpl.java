@@ -28,34 +28,35 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      */
     @Override
     public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
+
+        ackMessage message = ackMessage.newBuilder().setMessage("").build();
+        streamObserver.onNext(message);
+        streamObserver.onCompleted();
+
         //aggiorno la batteria, km percorsi e count del drone che ha effettuato la consegna nella lista
         MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
         MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
         MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setCountConsegne(
                 MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).getCountConsegne() + 1);
-        LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
-
-        if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
-            /*LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
-                            "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");*/
-
-            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaNonAssegnata(true);
-            synchronized (sync){
-                sync.notify();
-                //LOGGER.info("DRONE SVEGLIATO, NON PIÙ OCCUPATO");
-            }
-        }
-
-        else
-            LOGGER.info("IL DRONE È USCITO");
-
-        //aggiorno la posizione del drone nella lista di droni
+        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBufferPM10(sendStat.getInquinamentoList());
         MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones)
                 .setPosizionePartenza(
                         new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
                 );
-        ackMessage message = ackMessage.newBuilder().setMessage("").build();
-        streamObserver.onNext(message);
-        streamObserver.onCompleted();
+
+        LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
+
+        if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
+            LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
+                            "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVE NUOVI ORDINI");
+
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaNonAssegnata(true);
+            synchronized (sync){
+                sync.notifyAll();
+            }
+        }
+        else
+            LOGGER.info("IL DRONE È USCITO");
+
     }
 }

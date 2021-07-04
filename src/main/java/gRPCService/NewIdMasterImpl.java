@@ -22,10 +22,14 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private static List<Drone> drones;
     private static Drone drone;
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private final Object busy;
+    private final int updateInfoFromDrones;
 
-    public NewIdMasterImpl(List<Drone> drones, Drone drone){
+    public NewIdMasterImpl(List<Drone> drones, Drone drone, Object busy, int updateInfoFromDrones){
         this.drone = drone;
         this.drones = drones;
+        this.busy = busy;
+        this.updateInfoFromDrones = updateInfoFromDrones;
     }
 
     /**
@@ -44,9 +48,9 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         streamObserver.onCompleted();
 
         drone.setDroneMaster(MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()));
-        if (idMaster.getIdNewMaster() != drone.getId()){
+        if (idMaster.getIdNewMaster() != drone.getId()) {
             LOGGER.info("IL MASTER PRIMA DI IMPOSTARLO È: " + drone.getDroneMaster().getId() + "\n"
-                        + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());
+                    + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());
 
             LOGGER.info("ID MASTER DOPO SETTAGGIO: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
@@ -54,7 +58,20 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                     MethodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
                     drone.getDroneMaster());
 
-            asynchronousSendInfoAggiornateToNewMaster(drone);
+            if (idMaster.getIdNewMaster() == drone.getId()) {
+                LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+            } else
+                LOGGER.info("MESSAGGIO CON IL NUOVO MASTER INOLTRATO");
+
+            asynchronousSendInfoAggiornateToNewMaster(drone, updateInfoFromDrones);
+
+            if (drone.getId() == idMaster.getIdNewMaster()) {
+                while (updateInfoFromDrones == drones.size()) {
+                    synchronized (busy) {
+                        busy.notifyAll();
+                    }
+                }
+            }
         }
     }
 
@@ -94,7 +111,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         });
     }
 
-    private void forwardNewIdMaster(IdMaster idMaster){
+    public void forwardNewIdMaster(IdMaster idMaster){
+
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
 
         Context.current().fork().run( () -> {

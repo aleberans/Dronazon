@@ -16,7 +16,6 @@ import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import javafx.util.Pair;
 import org.eclipse.paho.client.mqttv3.*;
 
 import java.util.*;
@@ -27,29 +26,24 @@ public class ElectionImpl extends ElectionImplBase {
 
     private final Drone drone;
     private final List<Drone> drones;
-    private static final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
-    private static final String broker = "tcp://localhost:1883";
-    private static final String clientId = MqttClient.generateClientId();
-    private static MqttClient client = null;
-    private static final QueueOrdini queueOrdini = new QueueOrdini();
+    private final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
+    private final MqttClient client;
+    private final QueueOrdini queueOrdini = new QueueOrdini();
     private final Object sync;
+    private final Object newMasterSync = new Object();
+    private int updateInfoFromDrones;
 
-    static {
-        try {
-            client = new MqttClient(broker, clientId);
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public ElectionImpl(Drone drone, List<Drone> drones, Object sync){
+    public ElectionImpl(Drone drone, List<Drone> drones, Object sync, MqttClient client, int updateInfoFromDrones){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
+        this.client= client;
+        this.updateInfoFromDrones = updateInfoFromDrones;
     }
 
     @Override
-    public void sendElection(ElectionMessage electionMessage,  StreamObserver<ackMessage> streamObserver){
+    public void sendElection(ElectionMessage electionMessage,  StreamObserver<ackMessage> streamObserver) throws InterruptedException {
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
         streamObserver.onNext(message);
@@ -79,19 +73,27 @@ public class ElectionImpl extends ElectionImplBase {
         }
         //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
         if (currentIdMaster == drone.getId()){
+            drone.setIsMaster(true);
+            MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
             electionCompleted(drone, currentIdMaster, drones);
-            MqttMethods.subTopic("dronazon/smartcity/orders/", client, clientId, queueOrdini);
+
+            while (drones.size() != updateInfoFromDrones){
+                synchronized (newMasterSync){
+                    newMasterSync.wait();
+                }
+            }
+            this.updateInfoFromDrones = 0;
+
+            MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
             SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
             sendConsegnaThread.start();
-            drone.setIsMaster(true);
             SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones);
             sendStatisticToServer.start();
             LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
         }
-
     }
 
-    static class SendConsegnaThread extends Thread {
+    class SendConsegnaThread extends Thread {
 
         private final List<Drone> drones;
         private final Drone drone;
@@ -174,16 +176,18 @@ public class ElectionImpl extends ElectionImplBase {
         });
     }
 
-    private void electionCompleted(Drone drone, int newId, List<Drone> drones){
+    private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
+
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
+
         //AGGIUNTO MA FAI ATTENZIONE!!!
         drone.setConsegnaNonAssegnata(true);
 
         if (newId == drone.getId()){
-            LOGGER.info("IL MESSAGGIO DI ELEZIONE È TORNATO AL DRONE CON ID MAGGIORE, TUTTO REGOLARE");
+            LOGGER.info("ELETTO NUOVO MASTER CON ID: " + drone.getId());
+
         }
-        else
-            LOGGER.info("QUALCOSA NEL PASSAGGIO DEL NUOVO MASTER È ANDATO STORTO");
+
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -199,15 +203,19 @@ public class ElectionImpl extends ElectionImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    LOGGER.info("IL PROBLEMA È NELLA ONERROR DI ELECTIONCOMPLETED?");
                     channel.shutdownNow();
                     drones.remove(successivo);
-                    electionCompleted(drone, newId, drones);
+                    try {
+                        electionCompleted(drone, newId, drones);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
+                    updateInfoFromDrones++;
                 }
             });
             try {
@@ -218,7 +226,7 @@ public class ElectionImpl extends ElectionImplBase {
         });
     }
 
-    public static void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
+    public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
         Drone d = MethodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
 
@@ -239,7 +247,7 @@ public class ElectionImpl extends ElectionImplBase {
 
             Drone droneACuiConsegnare = null;
             try {
-                droneACuiConsegnare = test(drones, ordine);
+                droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -271,9 +279,9 @@ public class ElectionImpl extends ElectionImplBase {
                 @Override
                 public void onError(Throwable t) {
                     try {
+                        LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
                         drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
-                        LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + MethodSupport.getAllIdDroni(drones));
                         asynchronousSendConsegna(drones, d);
                     } catch (InterruptedException e) {
                         try {
@@ -301,7 +309,7 @@ public class ElectionImpl extends ElectionImplBase {
         });
     }
 
-    public static Drone test(List<Drone> drones, Ordine ordine) throws InterruptedException {
+    public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
         while (!MethodSupport.thereIsDroneLibero(drones)) {
             LOGGER.info("IN WAIT");
@@ -317,10 +325,12 @@ public class ElectionImpl extends ElectionImplBase {
         droni.sort(Collections.reverseOrder());
 
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
-        droni.removeIf(d -> d.getIsMaster() && d.getBatteria() < 15);
+        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 15));
 
+        LOGGER.info("STATO DRONI DISPONIBILI: " + droni + "\n" +
+                "NUMERO DRONI DISPONIBILE DOPO CONTROLLO: " + droni.stream().filter(Drone::consegnaNonAssegnata).count());
         return droni.stream().filter(Drone::consegnaNonAssegnata)
-                .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
     }
 }

@@ -14,7 +14,7 @@ public class MqttMethods {
     private static final Logger LOGGER = Logger.getLogger(MqttMethods.class.getSimpleName());
     private static final Gson gson = new Gson();
 
-    public static void subTopic(String topic, MqttClient client, String clientId, QueueOrdini queueOrdini) {
+    public static void subTopic(String topic, MqttClient client, QueueOrdini queueOrdini) {
         try {
             MqttConnectOptions connectOptions = new MqttConnectOptions();
             connectOptions.setCleanSession(true);
@@ -25,7 +25,7 @@ public class MqttMethods {
             client.setCallback(new MqttCallback() {
                 @Override
                 public void connectionLost(Throwable cause) {
-                    LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
+                    //LOGGER.info(clientId + " Connection lost! cause:" + cause.getMessage()+ "-  Thread PID: " + Thread.currentThread().getId());
                 }
 
                 @Override
@@ -49,7 +49,7 @@ public class MqttMethods {
             });
             //LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
             client.subscribe(topic,qos);
-            LOGGER.info(clientId + " Subscribed to topics : " + topic);
+            //LOGGER.info(clientId + " Subscribed to topics : " + topic);
 
         } catch (MqttException me) {
             LOGGER.info("reason " + me.getReasonCode());
