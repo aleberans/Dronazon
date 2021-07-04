@@ -1,15 +1,12 @@
 package Support;
 
 import DronazonPackage.DroneClient;
-import DronazonPackage.Ordine;
-import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
 import com.example.grpc.*;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import javafx.util.Pair;
 
 import java.awt.*;
 import java.util.*;
@@ -22,7 +19,7 @@ import java.util.stream.Collectors;
 public class AsynchronousMedthods {
 
     private static final String LOCALHOST = "localhost";
-    private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private static final Logger LOGGER = Logger.getLogger(AsynchronousMedthods.class.getSimpleName());
 
 
     public static void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {

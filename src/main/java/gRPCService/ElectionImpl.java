@@ -1,11 +1,8 @@
 package gRPCService;
 
-import DronazonPackage.DroneClient;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
-import REST.beans.Statistic;
-import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import Support.MqttMethods;
 import Support.ServerMethods;
@@ -16,9 +13,6 @@ import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.google.gson.Gson;
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -26,7 +20,6 @@ import io.grpc.stub.StreamObserver;
 import javafx.util.Pair;
 import org.eclipse.paho.client.mqttv3.*;
 
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -40,7 +33,6 @@ public class ElectionImpl extends ElectionImplBase {
     private static final String clientId = MqttClient.generateClientId();
     private static MqttClient client = null;
     private static final QueueOrdini queueOrdini = new QueueOrdini();
-    private static final Gson gson = new Gson();
     private static Object sync;
 
     static {
@@ -66,6 +58,7 @@ public class ElectionImpl extends ElectionImplBase {
 
         int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
+
 
         if (currentBatteriaResidua < drone.getBatteria()) {
             forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
@@ -184,6 +177,8 @@ public class ElectionImpl extends ElectionImplBase {
 
     private void electionCompleted(Drone drone, int newId, List<Drone> drones){
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
+        //AGGIUNTO MA FAI ATTENZIONE!!!
+        drone.setConsegnaNonAssegnata(true);
 
         if (newId == drone.getId()){
             LOGGER.info("IL MESSAGGIO DI ELEZIONE È TORNATO AL DRONE CON ID MAGGIORE, TUTTO REGOLARE");
@@ -205,6 +200,7 @@ public class ElectionImpl extends ElectionImplBase {
 
                 @Override
                 public void onError(Throwable t) {
+                    LOGGER.info("IL PROBLEMA È NELLA ONERROR DI ELECTIONCOMPLETED?");
                     channel.shutdownNow();
                     drones.remove(successivo);
                     electionCompleted(drone, newId, drones);
@@ -309,7 +305,6 @@ public class ElectionImpl extends ElectionImplBase {
 
             synchronized (queueOrdini){
                 if (queueOrdini.size() == 0)
-                    //LOGGER.info("CODA COMPLETAMENTE SVUOTATA");
                     queueOrdini.notify();
             }
             stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
@@ -322,11 +317,8 @@ public class ElectionImpl extends ElectionImplBase {
                 public void onError(Throwable t) {
                     try {
                         channel.shutdownNow();
-                        /*LOGGER.info("LO STATO DELLA LISTA È: " + getAllIdDroni(drones) +
-                                "\n IL DRONE CHE STA PROVANDO A FARE LA CONSEGNA È: " + d.getId() +
-                                "\n IL DRONE SUCCESSIVO A LUI È: " + takeDroneSuccessivo(d, drones).getId());*/
                         drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
-                        //LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + getAllIdDroni(drones));
+                        LOGGER.info("STATO LISTA DOPO RIMOZIONE: " + MethodSupport.getAllIdDroni(drones));
                         asynchronousSendConsegna(drones, d);
                     } catch (InterruptedException e) {
                         try {
@@ -343,7 +335,7 @@ public class ElectionImpl extends ElectionImplBase {
                     }
                 }
                 public void onCompleted() {
-                    channel.shutdown();
+                    channel.shutdownNow();
                 }
             });
             try {
@@ -356,11 +348,14 @@ public class ElectionImpl extends ElectionImplBase {
 
     public static Drone test(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
-        if (!MethodSupport.thereIsDroneLibero(drones)){
-            LOGGER.info("IN WAIT");
-            synchronized (sync){
-                sync.wait();
+        while (true){
+            if (!MethodSupport.thereIsDroneLibero(drones)) {
+                LOGGER.info("IN WAIT");
+                synchronized (sync) {
+                    sync.wait();
+                }
             }
+            break;
         }
         List<Drone> droni = new ArrayList<>(drones);
 
@@ -369,11 +364,10 @@ public class ElectionImpl extends ElectionImplBase {
         droni.sort(Collections.reverseOrder());
 
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
-        droni.removeIf(d -> d.getIsMaster() & d.getBatteria() < 15);
+        droni.removeIf(d -> d.getIsMaster() && d.getBatteria() < 15);
 
         return droni.stream().filter(Drone::consegnaNonAssegnata)
                 .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
     }
-
 }

@@ -7,20 +7,19 @@ import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
 
 import java.sql.Timestamp;
-import java.util.Queue;
 import java.util.logging.Logger;
 
 public class MqttMethods {
 
-    private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private static final Logger LOGGER = Logger.getLogger(MqttMethods.class.getSimpleName());
     private static final Gson gson = new Gson();
 
     public static void subTopic(String topic, MqttClient client, String clientId, QueueOrdini queueOrdini) {
-        int qos = 0;
         try {
             MqttConnectOptions connectOptions = new MqttConnectOptions();
             connectOptions.setCleanSession(true);
-
+            connectOptions.setKeepAliveInterval(60);
+            int qos = 0;
             client.connect();
 
             client.setCallback(new MqttCallback() {
@@ -40,9 +39,7 @@ public class MqttMethods {
                             "\n\tQoS:     " + message.getQos() + "\n");*/
 
                     Ordine ordine = gson.fromJson(receivedMessage, Ordine.class);
-
                     queueOrdini.add(ordine);
-                    //LOGGER.info("ordini:" + queueOrdini);
                 }
 
                 @Override
@@ -50,7 +47,6 @@ public class MqttMethods {
 
                 }
             });
-
             //LOGGER.info(clientId + " Subscribing ... - Thread PID: " + Thread.currentThread().getId());
             client.subscribe(topic,qos);
             LOGGER.info(clientId + " Subscribed to topics : " + topic);

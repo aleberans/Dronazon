@@ -8,8 +8,6 @@ import java.util.Random;
 
 public class MethodSupport {
 
-    private final Random rnd = new Random();
-
     public static String getAllIdDroni(List<Drone> drones){
         StringBuilder id = new StringBuilder();
         for (Drone d: drones){

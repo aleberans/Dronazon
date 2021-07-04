@@ -3,26 +3,17 @@ package gRPCService;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
-import REST.beans.Statistic;
 import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import Support.ServerMethods;
-import com.example.grpc.ElectionGrpc;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
-import com.sun.jersey.api.client.Client;
-import com.sun.jersey.api.client.ClientResponse;
-import com.sun.jersey.api.client.WebResource;
-import com.sun.jersey.api.client.config.ClientConfig;
-import com.sun.jersey.api.client.config.DefaultClientConfig;
-import com.sun.jersey.api.json.JSONConfiguration;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.codehaus.jackson.jaxrs.JacksonJsonProvider;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 
@@ -30,7 +21,6 @@ import java.awt.*;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -100,31 +90,36 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
     }
 
-    private void quitDroneMaster() throws InterruptedException {
+    private void quitDroneMaster() throws InterruptedException, MqttException {
         LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-        synchronized (drone){
-            if (drone.isInDeliveryOrForwaring()) {
-                LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
-                drone.wait();
-                LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+        for (Drone dr: drones) {
+            synchronized (drone) {
+                if (dr.isInDeliveryOrForwaring()) {
+                    LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
+                    drone.wait();
+                    LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+                } else
+                    LOGGER.info("NON CI SONO DRONI IN DELIVERY O CONSEGNA");
             }
         }
-        try {
-            client.disconnect();
-        } catch (MqttException e) {
-            LOGGER.info("MASTER DISCONNESSO DAL BROKER");
-        }
+        client.disconnect();
+        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
+
         synchronized (queueOrdini){
             if (queueOrdini.size() > 0){
                 LOGGER.info("CI SONO ANCORA CONSEGNE DA GESTIRE, WAIT...");
                 queueOrdini.wait();
             }
+            else
+                LOGGER.info("LA CODA È VUOTA: " + queueOrdini);
         }
-        if (!MethodSupport.thereIsDroneLibero(drones)){
-            LOGGER.info("CI SONO ANCORA DRONI OCCUPATI CHE STANNO CONSEGNANDO, WAIT...");
-            synchronized (sync){
+        synchronized (sync){
+            if (!MethodSupport.thereIsDroneLibero(drones)){
+                LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
                 sync.wait();
             }
+            else
+                LOGGER.info("TUTTI I DRONI SONO SENZA UNA COSNEGNA ASSEGNATA");
         }
         ServerMethods.sendStatistics(drones);
         ServerMethods.removeDroneServer(drone);
@@ -198,7 +193,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         kmPercorsiConsenga = updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna);
-        LOGGER.info("KM PERCORSI SINGOLO DRONE: " + kmPercorsiConsenga);
         drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + kmPercorsiConsenga);
         LOGGER.info("CONSEGNA EFFETTUATA");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
@@ -273,26 +267,29 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         });
     }
 
-    private void checkBatteryDrone(Drone drone) throws MqttException, InterruptedException {
-        if (drone.getBatteria()<= 15){
-            if (!drone.getIsMaster()){
-                LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
-                synchronized (drone){
-                    if (drone.isInDeliveryOrForwaring()){
-                        try {
-                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
-                            drone.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+    private void checkBatteryDrone(Drone d) throws MqttException, InterruptedException {
+        while (true) {
+            if (d.getBatteria() <= 15) {
+                if (!d.getIsMaster()) {
+                    LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
+                    synchronized (drone) {
+                        if (d.isInDeliveryOrForwaring()) {
+                            try {
+                                LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
+                                drone.wait();
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
+                    ServerMethods.removeDroneServer(d);
+                    LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+                    System.exit(0);
+                } else {
+                    quitDroneMaster();
                 }
-                ServerMethods.removeDroneServer(drone);
-                LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
-                System.exit(0);
-            }else {
-                quitDroneMaster();
             }
+            break;
         }
     }
 }

@@ -1,12 +1,11 @@
 package REST.beans;
 
-
-import DronazonPackage.DroneClient;
 import org.codehaus.jackson.annotate.JsonIgnore;
 
 import javax.xml.bind.annotation.XmlRootElement;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.List;
 
 @XmlRootElement
 public class Drone implements Comparable<Drone>{
@@ -22,6 +21,7 @@ public class Drone implements Comparable<Drone>{
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
     @JsonIgnore private int countConsegne = 0;
     @JsonIgnore private boolean isInDeliveryOrForwaring = false;
+    @JsonIgnore private List<Double> bufferPM10 = new ArrayList<>();
 
     public Drone(){}
 
@@ -37,8 +37,16 @@ public class Drone implements Comparable<Drone>{
 
     public synchronized void setInDeliveryOrForwaring(boolean inDeliveryOrForwaring) {
         isInDeliveryOrForwaring = inDeliveryOrForwaring;
-        if (!isInDeliveryOrForwaring){
-            notify();        }
+        if (!isInDeliveryOrForwaring)
+            notify();
+    }
+
+    public List<Double> getBufferPM10(){
+        return bufferPM10;
+    }
+
+    public void setBufferPM10(List<Double> bufferPM10){
+        this.bufferPM10 = bufferPM10;
     }
 
     public int getId(){return this.id;}

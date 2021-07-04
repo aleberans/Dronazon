@@ -6,15 +6,12 @@ import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
-import com.example.grpc.SendPositionToDroneMasterGrpc;
-import com.example.grpc.SendPositionToDroneMasterGrpc.*;
 import com.example.grpc.SendUpdatedInfoToMasterGrpc;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
-import java.awt.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;

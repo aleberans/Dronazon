@@ -24,12 +24,15 @@ public class ServerMethods {
         Date date = new Date();
         Timestamp ts = new Timestamp(date.getTime());
 
-        int mediaCountConsegne = 0;
+        double mediaCountConsegne = 0;
         double mediaKmPercorsi = 0.0;
-        int mediaInquinamento = 0;
-        int mediaBatteriaResidua = 0;
+        double mediaInquinamento = 0;
+        double mediaBatteriaResidua = 0;
         int countDroniAttivi = 0;
 
+        mediaInquinamento = drones.stream().map(
+                drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
+                    / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
         mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
         mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
         mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
@@ -37,7 +40,7 @@ public class ServerMethods {
 
         Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
                 mediaKmPercorsi / countDroniAttivi,
-                mediaInquinamento,
+                mediaInquinamento / countDroniAttivi,
                 mediaBatteriaResidua/countDroniAttivi);
         ClientResponse response = webResource2.type("application/json").post(ClientResponse.class, statistic);
         return "Output from Server .... \n" + response.getEntity(String.class);

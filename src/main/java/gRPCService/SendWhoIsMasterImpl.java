@@ -9,11 +9,9 @@ import java.util.List;
 
 public class SendWhoIsMasterImpl extends SendWhoIsMasterImplBase {
 
-    private List<Drone> drones;
-    private Drone drone;
+    private final Drone drone;
 
-    public SendWhoIsMasterImpl(List<Drone> drones, Drone drone){
-        this.drones=drones;
+    public SendWhoIsMasterImpl(Drone drone){
         this.drone = drone;
     }
 
