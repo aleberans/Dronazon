@@ -31,19 +31,17 @@ public class ElectionImpl extends ElectionImplBase {
     private final QueueOrdini queueOrdini = new QueueOrdini();
     private final Object sync;
     private final Object newMasterSync = new Object();
-    private int updateInfoFromDrones;
 
 
-    public ElectionImpl(Drone drone, List<Drone> drones, Object sync, MqttClient client, int updateInfoFromDrones){
+    public ElectionImpl(Drone drone, List<Drone> drones, Object sync, MqttClient client){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
         this.client= client;
-        this.updateInfoFromDrones = updateInfoFromDrones;
     }
 
     @Override
-    public void sendElection(ElectionMessage electionMessage,  StreamObserver<ackMessage> streamObserver) throws InterruptedException {
+    public void sendElection(ElectionMessage electionMessage,  StreamObserver<ackMessage> streamObserver) {
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
         streamObserver.onNext(message);
@@ -74,15 +72,18 @@ public class ElectionImpl extends ElectionImplBase {
         //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
         if (currentIdMaster == drone.getId()){
             drone.setIsMaster(true);
-            MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
-            electionCompleted(drone, currentIdMaster, drones);
-
-            while (drones.size() != updateInfoFromDrones){
-                synchronized (newMasterSync){
-                    newMasterSync.wait();
-                }
+            for (Drone d: drones){
+                MethodSupport.getDroneFromList(d.getId(), drones).setConsegnaNonAssegnata(false);
             }
-            this.updateInfoFromDrones = 0;
+
+            MethodSupport.getDroneFromList(drone.getId(), drones).setConsegnaNonAssegnata(true);
+            MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+            try {
+                electionCompleted(drone, currentIdMaster, drones);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
 
             MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
             SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
@@ -180,13 +181,7 @@ public class ElectionImpl extends ElectionImplBase {
 
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
 
-        //AGGIUNTO MA FAI ATTENZIONE!!!
-        drone.setConsegnaNonAssegnata(true);
 
-        if (newId == drone.getId()){
-            LOGGER.info("ELETTO NUOVO MASTER CON ID: " + drone.getId());
-
-        }
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
@@ -215,7 +210,6 @@ public class ElectionImpl extends ElectionImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
-                    updateInfoFromDrones++;
                 }
             });
             try {

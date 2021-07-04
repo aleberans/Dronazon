@@ -31,8 +31,6 @@ public class DroneClient{
     private final String broker;
     private final String clientId;
     private MqttClient client;
-    private final Object busy;
-    private final int updateInfoFromDrones;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -43,8 +41,6 @@ public class DroneClient{
         broker = "tcp://localhost:1883";
         clientId = MqttClient.generateClientId();
         client = new MqttClient(broker, clientId);
-        busy = new Object();
-        updateInfoFromDrones = 0;
     }
 
 
@@ -110,9 +106,9 @@ public class DroneClient{
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync))
                 .addService(new SendInfoAfterConsegnaImpl(drones, sync))
                 .addService(new PingAliveImpl())
-                .addService(new ElectionImpl(drone, drones, sync, client, updateInfoFromDrones))
-                .addService(new NewIdMasterImpl(drones, drone, busy, updateInfoFromDrones))
-                .addService(new SendUpdatedInfoToMasterImpl(drones, drone))
+                .addService(new ElectionImpl(drone, drones, sync, client))
+                .addService(new NewIdMasterImpl(drones, drone))
+                .addService(new SendUpdatedInfoToMasterImpl(drones, drone, sync))
                 .build();
         server.start();
     }

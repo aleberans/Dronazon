@@ -13,10 +13,12 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
 
     private final List<Drone> drones;
     private final Drone drone;
+    private final Object sync;
 
-    public SendUpdatedInfoToMasterImpl(List<Drone> drones, Drone drone){
+    public SendUpdatedInfoToMasterImpl(List<Drone> drones, Drone drone, Object sync){
         this.drones = drones;
         this.drone = drone;
+        this.sync = sync;
     }
 
     @Override
@@ -26,10 +28,12 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
 
         Point pos = new Point(info.getPosizione().getX(), info.getPosizione().getY());
 
-        Drone dr = MethodSupport.takeDroneFromId(drones, drone.getId());
-        Drone d = MethodSupport.findDrone(drones, dr);
+        MethodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
+        MethodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
+        MethodSupport.getDroneFromList(info.getId(), drones).setConsegnaNonAssegnata(true);
 
-        d.setPosizionePartenza(pos);
-        d.setBatteria(info.getBatteria());
+        synchronized (sync){
+            sync.notifyAll();
+        }
     }
 }

@@ -19,12 +19,11 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
 
     @Override
     public void sendPosition(SendPositionToMaster info, StreamObserver<ackMessage> streamObserver){
-        updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
-
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         streamObserver.onNext(message);
         streamObserver.onCompleted();
+        updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
     }
 
     public static void updatePositionDrone(List<Drone> drones, int id, Point position){

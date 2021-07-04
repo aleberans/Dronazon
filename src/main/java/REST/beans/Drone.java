@@ -15,7 +15,7 @@ public class Drone implements Comparable<Drone>{
     private String indirizzoIpDrone;
     @JsonIgnore private Point posizionePartenza;
     @JsonIgnore private boolean isMaster;
-    @JsonIgnore private int batteria = 50;
+    @JsonIgnore private int batteria = 80;
     @JsonIgnore private Drone droneMaster;
     @JsonIgnore private boolean consegnaNonAssegnata = true;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;

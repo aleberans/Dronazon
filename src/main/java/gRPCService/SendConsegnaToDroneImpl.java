@@ -53,6 +53,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drone.setInDeliveryOrForwaring(true);
         if (consegna.getIdDrone() == drone.getId()){
             try {
+                LOGGER.info("IN CONSEGNA...");
                 faiConsegna(consegna);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -154,9 +155,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onCompleted() {
+                    channel.shutdownNow();
                     LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
                     drone.setInDeliveryOrForwaring(false);
-                    channel.shutdown();
+
                 }
             });
             try {

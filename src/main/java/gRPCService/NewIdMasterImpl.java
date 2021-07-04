@@ -22,14 +22,10 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private static List<Drone> drones;
     private static Drone drone;
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
-    private final Object busy;
-    private final int updateInfoFromDrones;
 
-    public NewIdMasterImpl(List<Drone> drones, Drone drone, Object busy, int updateInfoFromDrones){
+    public NewIdMasterImpl(List<Drone> drones, Drone drone){
         this.drone = drone;
         this.drones = drones;
-        this.busy = busy;
-        this.updateInfoFromDrones = updateInfoFromDrones;
     }
 
     /**
@@ -63,15 +59,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             } else
                 LOGGER.info("MESSAGGIO CON IL NUOVO MASTER INOLTRATO");
 
-            asynchronousSendInfoAggiornateToNewMaster(drone, updateInfoFromDrones);
+            asynchronousSendInfoAggiornateToNewMaster(drone);
 
-            if (drone.getId() == idMaster.getIdNewMaster()) {
-                while (updateInfoFromDrones == drones.size()) {
-                    synchronized (busy) {
-                        busy.notifyAll();
-                    }
-                }
-            }
         }
     }
 
@@ -101,6 +90,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
+
                 }
             });
             try {
