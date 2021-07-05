@@ -42,11 +42,15 @@ public class AsynchronousMedthods {
                     channel.shutdown();
                     if (drone.getDroneMaster() == successivo){
                         LOGGER.info("ELEZIONE INDETTA TRAMITE PING");
-                        drones.remove(successivo);
+                        synchronized (drones){
+                            drones.remove(successivo);
+                        }
                         asynchronousStartElection(drones, drone);
                     }
                     else
-                        drones.remove(successivo);
+                        synchronized (drones) {
+                            drones.remove(successivo);
+                        }
                     LOGGER.info("IL DRONE SUCCESSIVO È MORTO, CI SI È ACCORTI TRAMITE PING" + drones);
                     asynchronousPingAlive(drone, drones);
                 } catch (InterruptedException e) {
@@ -63,6 +67,9 @@ public class AsynchronousMedthods {
     }
 
     public static void asynchronousStartElection(List<Drone> drones, Drone drone){
+
+        //METTO IL DRONE CHE MANDA
+
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
@@ -84,7 +91,9 @@ public class AsynchronousMedthods {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();
-                    drones.remove(successivo);
+                    synchronized (drones) {
+                        drones.remove(successivo);
+                    }
                     asynchronousStartElection(drones, drone);
                 }
 

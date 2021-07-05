@@ -34,21 +34,23 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
         streamObserver.onCompleted();
 
         //aggiorno la batteria, km percorsi e count del drone che ha effettuato la consegna nella lista
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setCountConsegne(
-                MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).getCountConsegne() + 1);
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBufferPM10(sendStat.getInquinamentoList());
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones)
-                .setPosizionePartenza(
-                        new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
-                );
+        synchronized (drones) {
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBatteria(sendStat.getBetteriaResidua());
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setKmPercorsiSingoloDrone(sendStat.getKmPercorsi());
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setCountConsegne(
+                    MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).getCountConsegne() + 1);
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBufferPM10(sendStat.getInquinamentoList());
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones)
+                    .setPosizionePartenza(
+                            new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
+                    );
+            LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
+            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
 
-        LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
-        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
-        if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
-            synchronized (sync){
-                sync.notify();
+            if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
+                synchronized (sync) {
+                    sync.notify();
+                }
             }
         }
     }

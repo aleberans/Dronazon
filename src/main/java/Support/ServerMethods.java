@@ -30,13 +30,15 @@ public class ServerMethods {
         double mediaBatteriaResidua;
         int countDroniAttivi;
 
-        mediaInquinamento = drones.stream().map(
-                drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
-                    / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
-        mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
-        mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
-        mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
-        countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
+        synchronized (drones) {
+            mediaInquinamento = drones.stream().map(
+                    drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
+                            / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
+            mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
+            mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
+            mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
+            countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
+        }
 
         Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
                 mediaKmPercorsi / countDroniAttivi,

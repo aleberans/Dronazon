@@ -128,7 +128,9 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdown();
-                    drones.remove(successivo);
+                    synchronized (drones) {
+                        drones.remove(successivo);
+                    }
                     forwardNewIdMaster(idMaster);
                 }
 

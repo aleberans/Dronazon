@@ -31,6 +31,7 @@ public class DroneClient{
     private final MqttClient client;
     private final Object inDelivery;
     private final Object inForward;
+    private final List<Drone> drones;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -43,6 +44,7 @@ public class DroneClient{
         client = new MqttClient(broker, clientId);
         inDelivery = false;
         inForward = false;
+        drones = new ArrayList<>();
     }
 
 
@@ -63,8 +65,9 @@ public class DroneClient{
                 drone.setIsMaster(false);
 
             //ordino totale della lista in base all'id
-            drones.sort(Comparator.comparingInt(Drone::getId));
-
+            synchronized (drones) {
+                drones.sort(Comparator.comparingInt(Drone::getId));
+            }
             startServiceGrpc(portaAscolto, drones, drone, client);
 
             if (drone.getIsMaster()) {
@@ -110,7 +113,7 @@ public class DroneClient{
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, sync, client))
                 .addService(new NewIdMasterImpl(drones, drone, sync))
-                .addService(new SendUpdatedInfoToMasterImpl(drones, drone, sync))
+                .addService(new SendUpdatedInfoToMasterImpl(drones, drone, sync, inForward))
                 .build();
         server.start();
     }
@@ -362,7 +365,9 @@ public class DroneClient{
                     try {
                         LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
-                        drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        synchronized (drones) {
+                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        }
                         asynchronousSendConsegna(drones, d);
                     } catch (InterruptedException e) {
                         try {

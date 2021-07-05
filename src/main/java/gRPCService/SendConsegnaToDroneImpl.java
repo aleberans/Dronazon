@@ -66,8 +66,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
         else if(drone.getIsMaster() && drone.getId() != consegna.getIdDrone()){
             LOGGER.info("IL DRONE: "+ consegna.getIdDrone() + " È CADUTO E LO TOLGO");
-            drones.remove(MethodSupport.takeDroneFromId(drones, consegna.getIdDrone()));
-
+            synchronized (drones) {
+                drones.remove(MethodSupport.takeDroneFromId(drones, consegna.getIdDrone()));
+            }
 
             Ordine ordineDaRiaggiungere = new Ordine(consegna.getIdDrone(),
                     new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY()),
@@ -124,6 +125,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
 
+
         Drone d = MethodSupport.takeDroneFromList(drone, drones);
         Drone successivo = MethodSupport.takeDroneSuccessivo(d, drones);
 
@@ -146,7 +148,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             LOGGER.info("IL DRONE PRIMA DEL MASTER SI È ACCORTO CHE IL MASTER È CADUTO, INDICE UNA NUOVA ELEZIONE");
                             startElection(drones, d, masterCaduto);
                         }
-                        drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        synchronized (drones) {
+                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        }
                         forwardConsegna(consegna);
                     } catch (InterruptedException e) {
                         try {
@@ -180,7 +184,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) {
-        drones.remove(masterCaduto);
+        synchronized (drones) {
+            drones.remove(masterCaduto);
+        }
         AsynchronousMedthods.asynchronousStartElection(drones, drone);
     }
 
@@ -250,6 +256,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onCompleted() {
                     LOGGER.info("CONSEGNA E INVIO INFORMAZIONI EFFETTUATE");
                     drone.setInDelivery(false);
+                    if (!drone.isInDelivery()) {
+                        synchronized (inDelivery) {
+                            LOGGER.info("NOTIFICA CHE HA FINITO LA CONSEGNA");
+                            inDelivery.notify();
+                        }
+                    }
                     try {
                         LOGGER.info("CHECK BATTERIA");
                         checkBatteryDrone(drone);

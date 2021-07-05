@@ -47,6 +47,10 @@ public class ElectionImpl extends ElectionImplBase {
         streamObserver.onNext(message);
         streamObserver.onCompleted();
 
+        //IL DRONE CHE RICEVE IL MESSAGGIO DI ELEZIONE SI METTE COME OCCUPATO E NON PUO USCIRE
+        //SI LIBERA QUANDO L'ELEZIONE È FINITA E HA MANDATO LE INFO AGGIORNATE AL NUOVO MASTER
+        drone.setInForwarding(true);
+
         int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
 
@@ -160,7 +164,9 @@ public class ElectionImpl extends ElectionImplBase {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();
-                    drones.remove(successivo);
+                    synchronized (drones) {
+                        drones.remove(successivo);
+                    }
                     forwardElection(drone, updateIdMAster, updatedBatteriaResidua,drones);
                 }
 
@@ -199,7 +205,9 @@ public class ElectionImpl extends ElectionImplBase {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();
-                    drones.remove(successivo);
+                    synchronized (drones){
+                        drones.remove(successivo);
+                    }
                     try {
                         electionCompleted(drone, newId, drones);
                     } catch (InterruptedException e) {
@@ -276,7 +284,9 @@ public class ElectionImpl extends ElectionImplBase {
                     try {
                         LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
-                        drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        synchronized (drones) {
+                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        }
                         asynchronousSendConsegna(drones, d);
                     } catch (InterruptedException e) {
                         try {

@@ -23,7 +23,9 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
 
         streamObserver.onNext(message);
         streamObserver.onCompleted();
-        updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
+        synchronized (drones) {
+            updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
+        }
     }
 
     public static void updatePositionDrone(List<Drone> drones, int id, Point position){

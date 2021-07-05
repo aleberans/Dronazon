@@ -14,11 +14,13 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
     private final List<Drone> drones;
     private final Drone drone;
     private final Object sync;
+    private final Object inForward;
 
-    public SendUpdatedInfoToMasterImpl(List<Drone> drones, Drone drone, Object sync){
+    public SendUpdatedInfoToMasterImpl(List<Drone> drones, Drone drone, Object sync, Object inForward){
         this.drones = drones;
         this.drone = drone;
         this.sync = sync;
+        this.inForward = inForward;
     }
 
     @Override
@@ -28,10 +30,19 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
 
         Point pos = new Point(info.getPosizione().getX(), info.getPosizione().getY());
 
-        MethodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
-        MethodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
-        MethodSupport.getDroneFromList(info.getId(), drones).setConsegnaAssegnata(false);
-
-
+        synchronized (drones) {
+            MethodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
+            MethodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
+            MethodSupport.getDroneFromList(info.getId(), drones).setConsegnaAssegnata(false);
+        }
+        //SI METTE NON PIÙ IN FASE DI ELEZIONE E PUÒ COSI USCIRE
+        drone.setInForwarding(false);
+        if (!drone.isInForwarding()) {
+            synchronized (inForward) {
+                while (drone.isInForwarding()) {
+                    inForward.notify();
+                }
+            }
+        }
     }
 }
