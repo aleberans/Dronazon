@@ -3,14 +3,16 @@ package Support;
 import REST.beans.Drone;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class MethodSupport {
 
     public static String getAllIdDroni(List<Drone> drones){
+        List<Drone> copyDrones = drones;
         StringBuilder id = new StringBuilder();
-        for (Drone d: drones){
+        for (Drone d: copyDrones){
             id.append(d.getId()).append(", ");
         }
         return id.toString();
@@ -44,11 +46,19 @@ public class MethodSupport {
      */
     public static boolean thereIsDroneLibero(List<Drone> drones){
         for(Drone d: drones){
-            if (d.consegnaNonAssegnata()) {
+            if (!d.consegnaAssegnata()) {
                 return true;
             }
         }
         return false;
+    }
+
+    public static boolean allDroniLiberi(List<Drone> drones){
+        for (Drone d: drones){
+            if (d.consegnaAssegnata())
+                return false;
+        }
+        return true;
     }
 
     public static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){

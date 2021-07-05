@@ -35,14 +35,18 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private final QueueOrdini queueOrdini;
     private final MqttClient client;
     private final Object sync;
+    private final Object inDelivery;
+    private final Object inForward;
 
 
-    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini, MqttClient client, Object sync){
+    public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini, MqttClient client, Object sync, Object inDelivery, Object inForward){
         this.drones = drones;
         this.drone = drone;
         this.queueOrdini = queueOrdini;
         this.client = client;
         this.sync = sync;
+        this.inDelivery = inDelivery;
+        this.inForward = inForward;
     }
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver ) {
@@ -50,9 +54,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();
 
-        drone.setInDeliveryOrForwaring(true);
+
         if (consegna.getIdDrone() == drone.getId()){
             try {
+                drone.setInDelivery(true);
                 LOGGER.info("IN CONSEGNA...");
                 faiConsegna(consegna);
             } catch (InterruptedException e) {
@@ -72,6 +77,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
         else {
             try {
+                drone.setInForwarding(true);
                 LOGGER.info("CONSEGNA INOLTRATA, IL RICEVENTE È: " + consegna.getIdDrone());
                 forwardConsegna(consegna);
             } catch (InterruptedException e) {
@@ -81,6 +87,15 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void quitDroneMaster() throws InterruptedException, MqttException {
+        client.disconnect();
+        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
+        synchronized (sync){
+            while (!MethodSupport.allDroniLiberi(drones)){
+                LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
+                sync.wait();
+            }
+        }
+
         synchronized (queueOrdini){
             while (queueOrdini.size() > 0){
                 LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE, WAIT..." + "\n"
@@ -90,24 +105,19 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
         LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
 
-        for (Drone dr: drones) {
-            synchronized (drone) {
-                while (dr.isInDeliveryOrForwaring()) {
-                    LOGGER.info("CI SONO ANCORA DRONI IN CONSENGA O DELIVERY, WAIT...");
-                    drone.wait();
-                }
+        synchronized (inForward) {
+            while (drone.isInForwarding()) {
+                LOGGER.info("IL MASTER È IN FORWARDING, WAIT...");
+                inForward.wait();
             }
         }
-        LOGGER.info("IL DRONE E' IN FASE DI USCITA");
-        client.disconnect();
-        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
+        synchronized (inDelivery){
+            while(drone.isInDelivery()) {
+                LOGGER.info("IL MASTER È IN DELIVERY, WAIT...");
+                inDelivery.wait();
+            }
+        }
 
-        synchronized (sync){
-            while (!MethodSupport.thereIsDroneLibero(drones)){
-                LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
-                sync.wait();
-            }
-        }
         ServerMethods.sendStatistics(drones);
         ServerMethods.removeDroneServer(drone);
     }
@@ -157,7 +167,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onCompleted() {
                     channel.shutdownNow();
                     LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
-                    drone.setInDeliveryOrForwaring(false);
+                    drone.setInForwarding(false);
 
                 }
             });
@@ -239,7 +249,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onCompleted() {
                     LOGGER.info("CONSEGNA E INVIO INFORMAZIONI EFFETTUATE");
-                    drone.setInDeliveryOrForwaring(false);
+                    drone.setInDelivery(false);
                     try {
                         LOGGER.info("CHECK BATTERIA");
                         checkBatteryDrone(drone);
@@ -261,13 +271,19 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         if (d.getBatteria() <= 15) {
             if (!d.getIsMaster()) {
                 LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
-                synchronized (drone) {
-                    if (d.isInDeliveryOrForwaring()) {
+                if (d.isInForwarding()) {
+                    synchronized (inForward) {
                         try {
-                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY O FORWARDING");
-                            drone.wait();
+                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN FORWARDING");
+                            inForward.wait();
                         } catch (InterruptedException e) {
                             e.printStackTrace();
+                        }
+                    }
+                    if (d.isInDelivery()){
+                        synchronized (inDelivery) {
+                            LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY");
+                            inDelivery.wait();
                         }
                     }
                 }
@@ -277,7 +293,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             } else {
                 LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
                 quitDroneMaster();
-                LOGGER.info("IL DRONE MASTER È USCITO PER LA BETTERIA INFERIORE DEL 15%");
+                LOGGER.info("IL DRONE MASTER È USCITO PER LA BATTERIA INFERIORE DEL 15%");
                 System.exit(0);
             }
         }

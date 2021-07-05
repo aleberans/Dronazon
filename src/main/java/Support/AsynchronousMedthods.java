@@ -84,9 +84,8 @@ public class AsynchronousMedthods {
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();
-                    //drones.remove(successivo);
-                    //asynchronousStartElection(drones, drone);
-                    LOGGER.info("PROVA A MANDARE IL MESSAGGIO DI ELEZIONE AL SUCCESSIVO MA È MORTO");
+                    drones.remove(successivo);
+                    asynchronousStartElection(drones, drone);
                 }
 
                 @Override

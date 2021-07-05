@@ -73,11 +73,11 @@ public class ElectionImpl extends ElectionImplBase {
         if (currentIdMaster == drone.getId()){
             drone.setIsMaster(true);
             for (Drone d: drones){
-                MethodSupport.getDroneFromList(d.getId(), drones).setConsegnaNonAssegnata(false);
+                MethodSupport.getDroneFromList(d.getId(), drones).setConsegnaAssegnata(true);
             }
-
-            MethodSupport.getDroneFromList(drone.getId(), drones).setConsegnaNonAssegnata(true);
+            MethodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
             MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+
             try {
                 electionCompleted(drone, currentIdMaster, drones);
             } catch (InterruptedException e) {
@@ -254,14 +254,15 @@ public class ElectionImpl extends ElectionImplBase {
                     .build();
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaNonAssegnata(false);
+            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
 
-            synchronized (queueOrdini){
-                if (queueOrdini.size() == 0)
-                    queueOrdini.notifyAll();
+            if (queueOrdini.size() == 0){
+                synchronized (queueOrdini) {
+                    queueOrdini.notify();
+                }
             }
 
             stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
@@ -288,7 +289,6 @@ public class ElectionImpl extends ElectionImplBase {
                         } catch (InterruptedException interruptedException) {
                             interruptedException.printStackTrace();
                         }
-
                     }
                 }
                 public void onCompleted() {
@@ -322,8 +322,8 @@ public class ElectionImpl extends ElectionImplBase {
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 15));
 
         LOGGER.info("STATO DRONI DISPONIBILI: " + droni + "\n" +
-                "NUMERO DRONI DISPONIBILE DOPO CONTROLLO: " + droni.stream().filter(Drone::consegnaNonAssegnata).count());
-        return droni.stream().filter(Drone::consegnaNonAssegnata)
+                "NUMERO DRONI DISPONIBILE DOPO CONTROLLO: " + droni.stream().filter(d -> !d.consegnaAssegnata()).count());
+        return droni.stream().filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
     }

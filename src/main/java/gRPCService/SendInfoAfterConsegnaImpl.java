@@ -45,20 +45,11 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
                 );
 
         LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
-
+        MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
         if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
-            LOGGER.info("IL DRONE È ANCORA VIVO E IL MASTER HA RICEVUTO LE INFORMAZIONI\n" +
-                            "SETTO IL DRONE " + sendStat.getIdDrone() + " LIBERO DI RICEVERE NUOVI ORDINI");
-
-            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaNonAssegnata(true);
-
             synchronized (sync){
-                LOGGER.info("SVEGLIATO SYNC CHE DORMIVA SU CONSEGNA NON ASSEGNATA FALSE (OVVERO CHE IL DRONE È IN CONSEGNA)");
-                sync.notifyAll();
+                sync.notify();
             }
         }
-        else
-            LOGGER.info("IL DRONE È USCITO");
-
     }
 }

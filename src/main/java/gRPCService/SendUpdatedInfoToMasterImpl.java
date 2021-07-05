@@ -30,10 +30,8 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
 
         MethodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
         MethodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
-        MethodSupport.getDroneFromList(info.getId(), drones).setConsegnaNonAssegnata(true);
+        MethodSupport.getDroneFromList(info.getId(), drones).setConsegnaAssegnata(false);
 
-        synchronized (sync){
-            sync.notifyAll();
-        }
+
     }
 }

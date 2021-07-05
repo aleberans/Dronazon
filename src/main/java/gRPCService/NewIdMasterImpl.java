@@ -16,16 +16,19 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
     private static List<Drone> drones;
     private static Drone drone;
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private final Object sync;
 
-    public NewIdMasterImpl(List<Drone> drones, Drone drone){
+    public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync){
         this.drone = drone;
         this.drones = drones;
+        this.sync = sync;
     }
 
     /**
@@ -56,6 +59,12 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             if (idMaster.getIdNewMaster() == drone.getId()) {
                 LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+                drones = drones.stream().filter(d -> !d.consegnaAssegnata()).collect(Collectors.toList());
+
+                synchronized (sync){
+                    sync.notify();;
+                }
+
             } else
                 LOGGER.info("MESSAGGIO CON IL NUOVO MASTER INOLTRATO");
 

@@ -28,9 +28,9 @@ public class DroneClient{
     private final QueueOrdini queueOrdini;
     private final String LOCALHOST;
     private final Object sync;
-    private final String broker;
-    private final String clientId;
-    private MqttClient client;
+    private final MqttClient client;
+    private final Object inDelivery;
+    private final Object inForward;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -38,9 +38,11 @@ public class DroneClient{
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
         sync = new Object();
-        broker = "tcp://localhost:1883";
-        clientId = MqttClient.generateClientId();
+        String broker = "tcp://localhost:1883";
+        String clientId = MqttClient.generateClientId();
         client = new MqttClient(broker, clientId);
+        inDelivery = false;
+        inForward = false;
     }
 
 
@@ -103,11 +105,11 @@ public class DroneClient{
                 .addService(new DronePresentationImpl(drones))
                 .addService(new SendWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones))
-                .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync))
+                .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery, inForward))
                 .addService(new SendInfoAfterConsegnaImpl(drones, sync))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, sync, client))
-                .addService(new NewIdMasterImpl(drones, drone))
+                .addService(new NewIdMasterImpl(drones, drone, sync))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, sync))
                 .build();
         server.start();
@@ -195,57 +197,70 @@ public class DroneClient{
         }
     }
 
-    class StopThread extends Thread{
+    class StopThread extends Thread {
 
         private final Drone drone;
         private final List<Drone> drones;
 
-        public StopThread(Drone drone, List<Drone> drones){
+        public StopThread(Drone drone, List<Drone> drones) {
             this.drone = drone;
             this.drones = drones;
         }
 
         BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+
         @Override
         public void run() {
             while (true) {
                 try {
-                    if (bf.readLine().equals("quit")){
-                        LOGGER.info("SI ACCORGE CHE PREMO WAIT?");
+                    if (bf.readLine().equals("quit")) {
                         if (!drone.getIsMaster()) {
-                            synchronized (drone) {
-                                if (drone.isInDeliveryOrForwaring()) {
-                                    LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
-                                    drone.wait();
-                                    LOGGER.info("IL DRONE E' IN FASE DI USCITA");
+                            if (drone.isInDelivery()) {
+                                synchronized (inDelivery) {
+                                    LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
+                                    inDelivery.wait();
                                 }
                             }
+                            LOGGER.info("IL DRONE HA FINITO LA DELIVERY, ESCO!");
+                            if (drone.isInForwarding()) {
+                                synchronized (inForward) {
+                                    LOGGER.info("IL DRONE È IN FORWARDING, WAIT...");
+                                    inForward.wait();
+                                }
+                            }
+                            LOGGER.info("IL DRONE HA FINITO DI FARE FORWARDING, ESCO!");
                             ServerMethods.removeDroneServer(drone);
                             break;
-                        }else{
+                        } else {
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-                            synchronized (drone){
-                                for (Drone d: drones) {
-                                    if (d.isInDeliveryOrForwaring()) {
-                                        LOGGER.info("IL DRONE NON PUÒ USCIRE, WAIT...");
-                                        drone.wait();
-                                        LOGGER.info("IL DRONE E' IN FASE DI USCITA");
-                                    }
+                            /*if (drone.isInDelivery()) {
+                                synchronized (inDelivery) {
+                                    LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
+                                    inDelivery.wait();
+                                }
+                            }
+                            LOGGER.info("IL DRONE HA FINITO LA DELIVERY, ESCO!");
+                            if (drone.isInForwarding()) {
+                                synchronized (inForward) {
+                                    LOGGER.info("IL DRONE È IN FORWARDING, WAIT...");
+                                    inForward.wait();
                                 }
                             }
 
+                            LOGGER.info("IL DRONE HA FINITO DI FARE FORWARDING, ESCO!");*/
+
                             client.disconnect();
-                            synchronized (queueOrdini){
-                                if (queueOrdini.size() > 0){
+                            if (queueOrdini.size() > 0) {
+                                synchronized (queueOrdini) {
                                     LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE, WAIT..." + "\n"
-                                    + queueOrdini);
+                                            + queueOrdini);
                                     queueOrdini.wait();
                                 }
                             }
 
-                            if (!(MethodSupport.thereIsDroneLibero(drones))){
-                                LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSENGA, WAIT...");
-                                synchronized (sync){
+                            if (!(MethodSupport.allDroniLiberi(drones))) {
+                                LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
+                                synchronized (sync) {
                                     sync.wait();
                                 }
                             }
@@ -261,6 +276,14 @@ public class DroneClient{
             LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
             System.exit(0);
         }
+    }
+
+    public boolean ciSonoDroniInDeliveryOrForwarding(List<Drone> drones){
+        for (Drone d: drones){
+            if (d.isInForwarding() || d.isInDelivery())
+                return true;
+        }
+        return false;
     }
 
     public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
@@ -280,7 +303,7 @@ public class DroneClient{
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
         droni.removeIf(d -> d.getIsMaster() && d.getBatteria() < 15);
 
-        return droni.stream().filter(Drone::consegnaNonAssegnata)
+        return droni.stream().filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
     }
@@ -319,7 +342,7 @@ public class DroneClient{
                     .build();
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaNonAssegnata(false);
+            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);

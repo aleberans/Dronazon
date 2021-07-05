@@ -17,10 +17,11 @@ public class Drone implements Comparable<Drone>{
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 80;
     @JsonIgnore private Drone droneMaster;
-    @JsonIgnore private boolean consegnaNonAssegnata = true;
+    @JsonIgnore private boolean consegnaAssegnata = false;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
     @JsonIgnore private int countConsegne = 0;
-    @JsonIgnore private boolean isInDeliveryOrForwaring = false;
+    @JsonIgnore private boolean isInDelivery = false;
+    @JsonIgnore private boolean isInForwarding = false;
     @JsonIgnore private List<Double> bufferPM10 = new ArrayList<>();
 
     public Drone(){}
@@ -31,14 +32,24 @@ public class Drone implements Comparable<Drone>{
         this.indirizzoIpDrone = indirizzoIpDrone;
     }
 
-    public synchronized boolean isInDeliveryOrForwaring() {
-        return isInDeliveryOrForwaring;
+    public synchronized boolean isInForwarding() {
+        return isInForwarding;
     }
 
-    public synchronized void setInDeliveryOrForwaring(boolean inDeliveryOrForwaring) {
-        isInDeliveryOrForwaring = inDeliveryOrForwaring;
-        if (!isInDeliveryOrForwaring)
+    public synchronized void setInForwarding(boolean isInForwarding) {
+        isInForwarding = isInForwarding;
+        if (!isInForwarding)
             notify();
+    }
+
+    public synchronized void setInDelivery(boolean isInDelivery){
+        isInDelivery = isInDelivery;
+        if (!isInDelivery)
+            notify();
+    }
+
+    public boolean isInDelivery() {
+        return isInDelivery;
     }
 
     public List<Double> getBufferPM10(){
@@ -99,19 +110,20 @@ public class Drone implements Comparable<Drone>{
                 ", isMaster=" + isMaster +
                 ", batteria=" + batteria +
                 ", droneMaster=" + droneMaster +
-                ", consegnaNonAssegnata =" + consegnaNonAssegnata +
+                ", consegnaAssegnata =" + consegnaAssegnata +
                 ", kmPercorsiSingoloDrone=" + kmPercorsiSingoloDrone +
                 ", countConsegne=" + countConsegne +
-                ", isInDeliveryOrForwaring=" + isInDeliveryOrForwaring +
+                ", isInDelivery=" + isInDelivery +
+                ", isInForwarding=" + isInForwarding +
                 '}';
     }
 
-    public boolean consegnaNonAssegnata() {
-        return consegnaNonAssegnata;
+    public boolean consegnaAssegnata() {
+        return consegnaAssegnata;
     }
 
-    public void setConsegnaNonAssegnata(boolean consegnaNonAssegnata) {
-        this.consegnaNonAssegnata = consegnaNonAssegnata;
+    public void setConsegnaAssegnata(boolean consegnaAssegnata) {
+        this.consegnaAssegnata = consegnaAssegnata;
     }
 
     public int getCountConsegne() {
