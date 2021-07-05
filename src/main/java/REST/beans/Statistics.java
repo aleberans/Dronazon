@@ -29,6 +29,10 @@ public class Statistics {
         statistics.add(stat);
     }
 
+    public ArrayList<Statistic> getList(){
+        return new ArrayList<>(statistics);
+    }
+
     public String stampStatistics(int n){
 
         int count = 0;
@@ -48,7 +52,7 @@ public class Statistics {
 
     public String getMediaNumeroConsegneBetweenTimestamp(String timestamp1, String timestamp2) {
 
-        int nConsegneTot = 0;
+        double nConsegneTot = 0;
         int cont = 0;
         Timestamp t1 = Timestamp.valueOf(timestamp1);
         Timestamp t2 = Timestamp.valueOf(timestamp2);
@@ -59,7 +63,7 @@ public class Statistics {
                 for (Statistic stat2: statistics) {
                     Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());
                     cont++;
-                    nConsegneTot += stat2.getNumeroConsegne();
+                    nConsegneTot = nConsegneTot + stat2.getNumeroConsegne();
 
                     if (timestampStat2.before(t2) || timestampStat2.equals(t2))
                         break;
@@ -71,7 +75,7 @@ public class Statistics {
 
     public String getMediaKMPercorsiBetweenTimestamp(String timestamp1, String timestamp2) {
 
-        int nKmPercorsiTot = 0;
+        double nKmPercorsiTot = 0;
         int cont = 0;
         Timestamp t1 = Timestamp.valueOf(timestamp1);
         Timestamp t2 = Timestamp.valueOf(timestamp2);
@@ -83,7 +87,7 @@ public class Statistics {
                 for (Statistic stat2 : statistics) {
                     Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());
                     cont++;
-                    nKmPercorsiTot += stat2.getKmPercorsi();
+                    nKmPercorsiTot = nKmPercorsiTot + stat2.getKmPercorsi();
 
                     if (timestampStat2.before(t2) || timestampStat2.equals(t2))
                         break;
