@@ -48,8 +48,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
         drone.setDroneMaster(MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()));
         if (idMaster.getIdNewMaster() != drone.getId()) {
-            LOGGER.info("IL MASTER PRIMA DI IMPOSTARLO È: " + drone.getDroneMaster().getId() + "\n"
-                    + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());
+            /*LOGGER.info("IL MASTER PRIMA DI IMPOSTARLO È: " + drone.getDroneMaster().getId() + "\n"
+                    + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());*/
 
             LOGGER.info("ID MASTER DOPO SETTAGGIO: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
@@ -58,15 +58,14 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                     drone.getDroneMaster());
 
             if (idMaster.getIdNewMaster() == drone.getId()) {
-                LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+                //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
                 drones = drones.stream().filter(d -> !d.consegnaAssegnata()).collect(Collectors.toList());
 
                 synchronized (sync){
                     sync.notify();;
                 }
 
-            } else
-                LOGGER.info("MESSAGGIO CON IL NUOVO MASTER INOLTRATO");
+            }
 
             asynchronousSendInfoAggiornateToNewMaster(drone);
 

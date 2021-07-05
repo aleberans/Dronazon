@@ -51,7 +51,6 @@ public class AsynchronousMedthods {
                         synchronized (drones) {
                             drones.remove(successivo);
                         }
-                    LOGGER.info("IL DRONE SUCCESSIVO È MORTO, CI SI È ACCORTI TRAMITE PING" + drones);
                     asynchronousPingAlive(drone, drones);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -68,7 +67,6 @@ public class AsynchronousMedthods {
 
     public static void asynchronousStartElection(List<Drone> drones, Drone drone){
 
-        //METTO IL DRONE CHE MANDA
 
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {

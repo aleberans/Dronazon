@@ -54,12 +54,12 @@ public class DroneClient{
 
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 
-            LOGGER.info("ID DRONE: " + drone.getId());
             List<Drone> drones = ServerMethods.addDroneServer(drone);
             drones = MethodSupport.updatePositionPartenzaDrone(drones, drone);
             if (drones.size()==1){
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
+                MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
             }
             else
                 drone.setIsMaster(false);
@@ -71,7 +71,6 @@ public class DroneClient{
             startServiceGrpc(portaAscolto, drones, drone, client);
 
             if (drone.getIsMaster()) {
-                LOGGER.info("Sono il primo master");
                 MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
 
                 SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
@@ -187,11 +186,13 @@ public class DroneClient{
             while(true){
                 try {
                     AsynchronousMedthods.asynchronousPingAlive(drone, drones);
-                    LOGGER.info("TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() + "\n"
-                            + "TOTALE KM PERCORSI: "+ drone.getKmPercorsiSingoloDrone() +"\n"
-                            + "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n"
-                            + "LISTA DRONI ATTUALE: " + MethodSupport.getAllIdDroni(drones) + "\n"
-                            + "L'ATTUALE MASTER È " + drone.getDroneMaster().getId());
+                    LOGGER.info("ID DEL DRONE: " + drone.getId() + "\n"
+                            + "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n"
+                            + "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() +  "\n"
+                            + "TOTALE KM PERCORSI: "+ drone.getKmPercorsiSingoloDrone() + "\n"
+                            + "P10 RILEVATO: " + drone.getBufferPM10() + "\n"
+                            + "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() +    "\n"
+                            + "LISTA DRONI ATTUALE: " + MethodSupport.getAllIdDroni(drones) + "\n");
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -281,22 +282,7 @@ public class DroneClient{
         }
     }
 
-    public boolean ciSonoDroniInDeliveryOrForwarding(List<Drone> drones){
-        for (Drone d: drones){
-            if (d.isInForwarding() || d.isInDelivery())
-                return true;
-        }
-        return false;
-    }
-
     public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
-
-        while (!MethodSupport.thereIsDroneLibero(drones)) {
-            LOGGER.info("IN WAIT");
-            synchronized (sync) {
-                sync.wait();
-            }
-        }
         List<Drone> droni = new ArrayList<>(drones);
 
         droni.sort(Comparator.comparing(Drone::getBatteria)
@@ -304,14 +290,21 @@ public class DroneClient{
         droni.sort(Collections.reverseOrder());
 
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
-        droni.removeIf(d -> d.getIsMaster() && d.getBatteria() < 15);
+        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 15));
+
+        while (!MethodSupport.thereIsDroneLibero(droni)) {
+            synchronized (sync) {
+                sync.wait();
+            }
+        }
 
         return droni.stream().filter(d -> !d.consegnaAssegnata())
-                .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                .orElse(null);
+                    .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                    .orElse(null);
     }
 
     public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
+
         Drone d = MethodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
 

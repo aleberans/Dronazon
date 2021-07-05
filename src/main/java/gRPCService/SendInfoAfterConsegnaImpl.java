@@ -40,12 +40,14 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setCountConsegne(
                     MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).getCountConsegne() + 1);
             MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setBufferPM10(sendStat.getInquinamentoList());
+
             MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones)
                     .setPosizionePartenza(
                             new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
                     );
-            LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
+            //LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
             MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
+
 
             if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
                 synchronized (sync) {
