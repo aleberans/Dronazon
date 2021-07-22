@@ -22,10 +22,11 @@ public class DronePresentationImpl extends DronePresentationImplBase{
         Drone drone = new Drone(info.getId(), info.getPortaAscolto(), info.getIndirizzoDrone());
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
-        drones.add(drone);
-
-        //Riordino la lista dopo aver aggiunto il drone che si è inserito
-        drones.sort(Comparator.comparingInt(Drone::getId));
+        synchronized (drones) {
+            drones.add(drone);
+            //Riordino la lista dopo aver aggiunto il drone che si è inserito
+            drones.sort(Comparator.comparingInt(Drone::getId));
+        }
 
         streamObserver.onNext(message);
         streamObserver.onCompleted();

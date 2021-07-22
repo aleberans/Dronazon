@@ -3,7 +3,6 @@ package Support;
 import REST.beans.Drone;
 
 import java.awt.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -46,11 +45,6 @@ public class MethodSupport {
         }
     }
 
-    /**
-     * @param drones
-     * @return
-     * Scorre la lista dei droni e trova se c'è almeno un drone libero di effettuare una cosegna
-     */
     public static boolean thereIsDroneLibero(List<Drone> drones){
         synchronized(drones) {
             for (Drone d : drones) {

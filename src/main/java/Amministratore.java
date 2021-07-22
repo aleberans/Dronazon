@@ -12,14 +12,15 @@ import java.util.Scanner;
 public class Amministratore {
 
     public static void main(String[] args) throws IOException {
+        String decisione = "Seleziona cosa vuoi fare:\n" +
+                "1 - stampa l'elenco dei droni nella rete\n" +
+                "2 - ultime n statistiche globali relative alla smart city\n" +
+                "3 - media del numero di consegne effettuate dai droni della smart-city tra due timestamp t1 e t2\n" +
+                "4 - media dei chilometri percorsi dai droni della smart-city tra due time-stamp t1 e t2\n" +
+                "attendo....";
         Scanner sc = new Scanner(System.in);
         while(true) {
-            System.out.println("Seleziona cosa vuoi fare:\n" +
-                    "1 - stampa l'elenco dei droni nella rete\n" +
-                    "2 - ultime n statistiche globali relative alla smart city\n" +
-                    "3 - media del numero di consegne effettuate dai droni della smart-city tra due timestamp t1 e t2\n" +
-                    "4 - media dei chilometri percorsi dai droni della smart-city tra due time-stamp t1 e t2\n" +
-                    "attendo....");
+            System.out.println(decisione);
             int input = sc.nextInt();
 
             String output;

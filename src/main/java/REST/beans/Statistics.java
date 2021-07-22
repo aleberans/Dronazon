@@ -54,7 +54,7 @@ public class Statistics {
         Timestamp t2 = Timestamp.valueOf(timestamp2);
         for (Statistic stat: statistics) {
             Timestamp timestampStat = Timestamp.valueOf(stat.getTimestamp());
-
+            System.out.println("Consegne: " +  stat.getNumeroConsegne());
             if (timestampStat.after(t1) || timestampStat.equals(t1)){
                 for (Statistic stat2: statistics) {
                     Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());

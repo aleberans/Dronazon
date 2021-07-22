@@ -5,8 +5,6 @@ import com.example.grpc.Message.*;
 import com.example.grpc.SendWhoIsMasterGrpc.*;
 import io.grpc.stub.StreamObserver;
 
-import java.util.List;
-
 public class SendWhoIsMasterImpl extends SendWhoIsMasterImplBase {
 
     private final Drone drone;
