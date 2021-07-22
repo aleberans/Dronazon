@@ -3,13 +3,17 @@ import REST.beans.Statistics;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
+import com.sun.jersey.core.util.MultivaluedMapImpl;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import javax.ws.rs.core.MultivaluedMap;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Scanner;
 
 public class Amministratore {
+
+    private static ClientResponse response;
 
     public static void main(String[] args) throws IOException {
         String decisione = "Seleziona cosa vuoi fare:\n" +
@@ -19,39 +23,64 @@ public class Amministratore {
                 "4 - media dei chilometri percorsi dai droni della smart-city tra due time-stamp t1 e t2\n" +
                 "attendo....";
         Scanner sc = new Scanner(System.in);
+        MultivaluedMap<String, String> param = new MultivaluedMapImpl();
+        Client client = Client.create();
+        String url = "http://localhost:1337";
+
         while(true) {
             System.out.println(decisione);
             int input = sc.nextInt();
 
             String output;
             switch (input) {
-                case 1:  output = getListaDroni();
+                case 1:  System.out.println(getListaDroni());
                          break;
                 case 2:
                     System.out.println("Quante statistiche globali vuoi visualizzare?");
                     int n = sc.nextInt();
-                    output = getNGlobalStatistics(n);
+                    System.out.println(getNGlobalStatistics(n));
                          break;
                 case 3:
                     System.out.println("Inserisci due timestamp per fare la richiesta:\nPrimo timestamp: ");
-                    sc.nextLine();
+                    param.add("t1", sc.nextLine());
+                    System.out.println("Secondo timestamp: ");
+                    param.add("t2", sc.nextLine());
+
+                    WebResource webResource = client.resource(url + "/statistics/queryconsegne").queryParams(param);
+                    response = webResource.accept("application/json").get(ClientResponse.class);
+
+                    System.out.print("Output from Server: ");
+
+                    System.out.println(response.getEntity(String.class));
+
+                    /*sc.nextLine();
                     String t1 = sc.nextLine();
                     System.out.println("Secondo timestamp: ");
                     String t2 = sc.nextLine();
-                    output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);
+                    output = getMediaNumeroConsegneBetweenTimestamp(t1, t2);*/
                         break;
                 case 4:
-                    System.out.println("Inserisci due timestamp per fare la richiesta\nPrimo timestamp: ");
+                    System.out.println("Inserisci due timestamp per fare la richiesta:\nPrimo timestamp: ");
+                    param.add("t1", sc.nextLine());
+                    System.out.println("Secondo timestamp: ");
+                    param.add("t2", sc.nextLine());
+
+                    webResource = client.resource(url + "/statistics/querykm").queryParams(param);
+                    response = webResource.accept("application/json").get(ClientResponse.class);
+
+                    checkResponse();
+
+                    System.out.println(response.getEntity(String.class));
+                    /*System.out.println("Inserisci due timestamp per fare la richiesta\nPrimo timestamp: ");
                     sc.nextLine();
                     String t12 = sc.nextLine();
                     System.out.println("Secondo timestamp: ");
                     String t22 = sc.nextLine();
-                    output = getMediaKMPercorsiBetweenTimestamp(t12, t22);
+                    output = getMediaKMPercorsiBetweenTimestamp(t12, t22);*/
                     break;
                 default: output = "Invalid insert";
                          break;
             }
-            System.out.println(output);
         }
     }
 
@@ -90,10 +119,11 @@ public class Amministratore {
         SmartCity smartCity = objectMapper.readValue(output, SmartCity.class);
 
         return  "Output from Server .... \n" + smartCity.stampaSmartCity();
-
-
     }
 
-
-
+    private static void checkResponse() {
+        if (response.getStatus() != 200) {
+            throw new RuntimeException("Failed : HTTP error code : " + response.getStatus());
+        }
+    }
 }
