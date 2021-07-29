@@ -4,6 +4,7 @@ import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
 import Support.AsynchronousMedthods;
+import Support.LogFormatter;
 import Support.MethodSupport;
 import Support.ServerMethods;
 import com.example.grpc.Message.*;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 
 
@@ -49,6 +51,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         this.sync = sync;
         this.inDelivery = inDelivery;
         this.inForward = inForward;
+        LOGGER.setUseParentHandlers(false);
+        ConsoleHandler handler = new ConsoleHandler();
+        LogFormatter formatter = new LogFormatter();
+        handler.setFormatter(formatter);
+        LOGGER.addHandler(handler);
     }
     @Override
     public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver ) {
@@ -251,7 +258,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onCompleted() {
                     LOGGER.info("CONSEGNA E INVIO INFORMAZIONI EFFETTUATE");
-                    drone.setKmPercorsiSingoloDrone(0);
                     drone.setBufferPM10(new ArrayList<>());
                     drone.setInDelivery(false);
                     if (!drone.isInDelivery()) {

@@ -10,9 +10,9 @@ import java.util.stream.Collectors;
 public class PM10Buffer implements Buffer {
 
     private List<Measurement> buffer = new ArrayList<>();
-    private final Trigger trigger;
+    private final PM10Trigger trigger;
 
-    public PM10Buffer(Trigger trigger){
+    public PM10Buffer(PM10Trigger trigger){
         this.trigger = trigger;
     }
 

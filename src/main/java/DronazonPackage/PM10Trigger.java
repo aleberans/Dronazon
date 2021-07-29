@@ -1,5 +1,5 @@
 package DronazonPackage;
 
-public interface Trigger {
+public interface PM10Trigger {
     void trigger(PM10Buffer pm10);
 }

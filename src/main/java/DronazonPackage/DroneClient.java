@@ -3,10 +3,7 @@ package DronazonPackage;
 import REST.beans.Drone;
 import SImulatori.Measurement;
 import SImulatori.PM10Simulator;
-import Support.AsynchronousMedthods;
-import Support.MethodSupport;
-import Support.MqttMethods;
-import Support.ServerMethods;
+import Support.*;
 import com.example.grpc.*;
 import gRPCService.*;
 import io.grpc.*;
@@ -19,6 +16,7 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 
 public class DroneClient{
@@ -50,6 +48,12 @@ public class DroneClient{
 
     public void start(){
         try{
+            LOGGER.setUseParentHandlers(false);
+            ConsoleHandler handler = new ConsoleHandler();
+            LogFormatter formatter = new LogFormatter();
+            handler.setFormatter(formatter);
+            LOGGER.addHandler(handler);
+
             int portaAscolto = rnd.nextInt(1000) + 8080;
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 

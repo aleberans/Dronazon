@@ -5,7 +5,7 @@ import java.util.Date;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
-public class LogFormat extends Formatter {
+public class LogFormatter extends Formatter {
 
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_BLACK = "\u001B[30m";
@@ -17,7 +17,7 @@ public class LogFormat extends Formatter {
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_WHITE = "\u001B[37m";
 
-    public LogFormat() {}
+    public LogFormatter() {}
 
     @Override
     public String format(LogRecord record) {
@@ -36,7 +36,7 @@ public class LogFormat extends Formatter {
         builder.append(record.getLevel().getName());
         builder.append("]");
 
-        builder.append(ANSI_YELLOW);
+        builder.append(ANSI_GREEN);
         builder.append(" - ");
         builder.append(record.getMessage());
 
