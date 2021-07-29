@@ -61,7 +61,7 @@ public class Dronazon{
                 LOGGER.info(clientId + " Publishing message: " + message + " ...");
                 client.publish(topic, message);
                 //System.out.println(clientId + " Message published - Thread PID: " + Thread.currentThread().getId());
-                Thread.sleep(5000);
+                Thread.sleep(2000);
             }
 
 

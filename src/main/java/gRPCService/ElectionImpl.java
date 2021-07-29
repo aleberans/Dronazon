@@ -313,12 +313,6 @@ public class ElectionImpl extends ElectionImplBase {
 
     public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
 
-        while (!MethodSupport.thereIsDroneLibero(drones)) {
-            LOGGER.info("IN WAIT");
-            synchronized (sync) {
-                sync.wait();
-            }
-        }
 
         List<Drone> droni = new ArrayList<>(drones);
 
@@ -328,6 +322,14 @@ public class ElectionImpl extends ElectionImplBase {
 
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 15));
+
+        synchronized (sync){
+            while (!MethodSupport.thereIsDroneLibero(droni)) {
+                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                sync.wait();
+                LOGGER.info("SVEGLIATO SU SYNC");
+            }
+        }
 
         LOGGER.info("STATO DRONI DISPONIBILI: " + droni + "\n" +
                 "NUMERO DRONI DISPONIBILE DOPO CONTROLLO: " + droni.stream().filter(d -> !d.consegnaAssegnata()).count());

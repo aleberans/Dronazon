@@ -52,6 +52,7 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
 
         if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
             synchronized (sync) {
+                LOGGER.info("MASTER HA RICEVUTO LE INFO, SVEGLIA SU SYNC");
                 sync.notifyAll();
             }
         }

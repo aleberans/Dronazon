@@ -110,7 +110,7 @@ public class DroneClient{
 
     private void startServiceGrpc(int portaAscolto, List<Drone> drones, Drone drone, MqttClient client) throws IOException {
         Server server = ServerBuilder.forPort(portaAscolto)
-                .addService(new DronePresentationImpl(drones))
+                .addService(new DronePresentationImpl(drones, sync))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery, inForward))
@@ -292,11 +292,13 @@ public class DroneClient{
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() <= 20));
 
-        while (!MethodSupport.thereIsDroneLibero(droni)) {
-            synchronized (sync) {
+        /*synchronized (sync){
+            while (!MethodSupport.thereIsDroneLibero(droni)) {
+                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
                 sync.wait();
+                LOGGER.info("SVEGLIATO SU SYNC");
             }
-        }
+        }*/
 
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                     .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
@@ -325,6 +327,15 @@ public class DroneClient{
 
             Drone droneACuiConsegnare = null;
             try {
+                List<Drone> droni = new ArrayList<>(drones);
+                droni.removeIf(dr -> (dr.getIsMaster() && dr.getBatteria() <= 20));
+                synchronized (sync){
+                    while (!MethodSupport.thereIsDroneLibero(droni)) {
+                        LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                        sync.wait();
+                        LOGGER.info("SVEGLIATO SU SYNC");
+                    }
+                }
                 droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -342,11 +353,6 @@ public class DroneClient{
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
-
-            synchronized (queueOrdini){
-                if (queueOrdini.size() == 0)
-                    queueOrdini.notifyAll();
-            }
 
             stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
                 @Override

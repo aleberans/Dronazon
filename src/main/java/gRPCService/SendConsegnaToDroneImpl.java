@@ -7,6 +7,7 @@ import Support.AsynchronousMedthods;
 import Support.LogFormatter;
 import Support.MethodSupport;
 import Support.ServerMethods;
+import com.example.grpc.Message;
 import com.example.grpc.Message.*;
 import com.example.grpc.ReceiveInfoAfterConsegnaGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
@@ -22,8 +23,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import java.awt.*;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.ConsoleHandler;
@@ -99,20 +99,21 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         if (client.isConnected())
             client.disconnect();
         //LOGGER.info("MASTER DISCONNESSO DAL BROKER");
-        synchronized (sync){
-            while (!MethodSupport.allDroniLiberi(drones)){
+        /*synchronized (sync){
+            while (!MethodSupport.allDroniLiberi(drones) || queueOrdini.size() > 0){
                 LOGGER.info("CI SONO ANCORA DRONI A CUI È STATA ASSEGNATA UNA CONSEGNA, WAIT...");
+                sync.wait();
+            }
+        }*/
+
+        synchronized (sync){
+            while (queueOrdini.size() > 0 || !MethodSupport.thereIsDroneLibero(drones)){
+                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
+                        + queueOrdini);
                 sync.wait();
             }
         }
 
-        synchronized (queueOrdini){
-            while (queueOrdini.size() > 0){
-                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE, WAIT..." + "\n"
-                        + queueOrdini);
-                queueOrdini.wait();
-            }
-        }
         LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
 
         synchronized (inForward) {
@@ -185,7 +186,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     channel.shutdownNow();
                     LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
                     drone.setInForwarding(false);
-
                 }
             });
             try {
@@ -214,7 +214,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         drone.setKmPercorsiSingoloDrone(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
-        //drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + drone.getKmPercorsiSingoloDrone());
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
@@ -265,6 +264,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             //LOGGER.info("NOTIFICA CHE HA FINITO LA CONSEGNA");
                             inDelivery.notify();
                         }
+                    }
+                    synchronized (sync){
+                        sync.notifyAll();
                     }
                     try {
                         //LOGGER.info("CHECK BATTERIA");
