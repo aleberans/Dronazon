@@ -72,7 +72,7 @@ public class ElectionImpl extends ElectionImplBase {
             MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
             SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
             sendConsegnaThread.start();
-            SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones);
+            SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
             sendStatisticToServer.start();
             LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
         }
@@ -120,19 +120,23 @@ public class ElectionImpl extends ElectionImplBase {
     static class SendStatisticToServer extends Thread{
 
         private final List<Drone> drones;
+        private final QueueOrdini queueOrdini;
 
-        public SendStatisticToServer(List<Drone> drones){
+        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini){
             this.drones = drones;
+            this.queueOrdini = queueOrdini;
         }
 
         @Override
         public void run(){
             while(true){
-                ServerMethods.sendStatistics(drones);
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                if (queueOrdini.size() != 0) {
+                    ServerMethods.sendStatistics(drones);
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }

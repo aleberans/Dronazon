@@ -77,7 +77,8 @@ public class DroneClient{
                 SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
                 sendConsegnaThread.start();
 
-                SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones);
+
+                SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
                 sendStatisticToServer.start();
             }
             else {
@@ -132,19 +133,23 @@ public class DroneClient{
     static class SendStatisticToServer extends Thread{
 
         private final List<Drone> drones;
+        private final QueueOrdini queueOrdini;
 
-        public SendStatisticToServer(List<Drone> drones){
+        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini){
             this.drones = drones;
+            this.queueOrdini = queueOrdini;
         }
 
         @Override
         public void run(){
             while(true){
-                ServerMethods.sendStatistics(drones);
-                try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                if (queueOrdini.size() != 0) {
+                    ServerMethods.sendStatistics(drones);
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
