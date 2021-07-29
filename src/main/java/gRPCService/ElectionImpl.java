@@ -30,7 +30,6 @@ public class ElectionImpl extends ElectionImplBase {
     private final MqttClient client;
     private final QueueOrdini queueOrdini = new QueueOrdini();
     private final Object sync;
-    private final Object newMasterSync = new Object();
 
 
     public ElectionImpl(Drone drone, List<Drone> drones, Object sync, MqttClient client){
@@ -54,24 +53,6 @@ public class ElectionImpl extends ElectionImplBase {
         int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
 
-
-        if (currentBatteriaResidua < drone.getBatteria()) {
-            forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
-            //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE");
-        }
-        else if (currentBatteriaResidua > drone.getBatteria()) {
-            forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
-            //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
-        }
-        else {
-            if (currentIdMaster < drone.getId()) {
-                //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER");
-                forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
-            } else if (currentIdMaster > drone.getId()) {
-                forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
-                //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
-            }
-        }
         //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
         if (currentIdMaster == drone.getId()){
             drone.setIsMaster(true);
@@ -94,6 +75,23 @@ public class ElectionImpl extends ElectionImplBase {
             SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones);
             sendStatisticToServer.start();
             LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
+        }
+        else {
+            if (currentBatteriaResidua < drone.getBatteria()) {
+                forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
+                //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE");
+            } else if (currentBatteriaResidua > drone.getBatteria()) {
+                forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
+                //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
+            } else {
+                if (currentIdMaster < drone.getId()) {
+                    //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER");
+                    forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
+                } else if (currentIdMaster > drone.getId()) {
+                    forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
+                    //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
+                }
+            }
         }
     }
 
@@ -185,9 +183,6 @@ public class ElectionImpl extends ElectionImplBase {
     private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
 
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
-
-
-
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 

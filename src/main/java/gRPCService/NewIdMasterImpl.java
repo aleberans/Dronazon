@@ -2,7 +2,6 @@ package gRPCService;
 
 import DronazonPackage.DroneClient;
 import REST.beans.Drone;
-import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
@@ -34,7 +33,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     /**
      * Imposto lato ricezione del messaggio come master il drone che ha l'id del messaggio che arriva.
      * Se arriva al drone che non è designato ad essere master imposto il nuovo master,
-     * mando la posizione e la batteria residura al master e inoltro il messaggio al drone successivo che farà esattamewnte la stessa cosa.
+     * mando la posizione e la batteria residua al master e inoltro il messaggio al drone successivo che farà esattamente la stessa cosa.
      * Altrimenti significa che il messaggio è tornato al drone designato come nuovo master
      * devo aggiornare la sua lista dei droni attivi
      * @param idMaster
@@ -47,28 +46,27 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         streamObserver.onCompleted();
 
         drone.setDroneMaster(MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()));
+
         if (idMaster.getIdNewMaster() != drone.getId()) {
             /*LOGGER.info("IL MASTER PRIMA DI IMPOSTARLO È: " + drone.getDroneMaster().getId() + "\n"
                     + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());*/
 
             LOGGER.info("ID MASTER DOPO SETTAGGIO: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
-            AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
+            /*AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
                     MethodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
-                    drone.getDroneMaster());
-
-            if (idMaster.getIdNewMaster() == drone.getId()) {
-                //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
-                drones = drones.stream().filter(d -> !d.consegnaAssegnata()).collect(Collectors.toList());
-
-                synchronized (sync){
-                    sync.notify();;
-                }
-
-            }
+                    drone.getDroneMaster());*/
 
             asynchronousSendInfoAggiornateToNewMaster(drone);
-
+        }
+        else{
+            //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+            synchronized (drones) {
+                drones = drones.stream().filter(d -> !d.consegnaAssegnata()).collect(Collectors.toList());
+            }
+            synchronized (sync){
+                sync.notify();;
+            }
         }
     }
 

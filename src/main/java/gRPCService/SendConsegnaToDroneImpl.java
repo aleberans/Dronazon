@@ -7,6 +7,7 @@ import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import Support.ServerMethods;
 import com.example.grpc.Message.*;
+import com.example.grpc.ReceiveInfoAfterConsegnaGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc.*;
 import com.example.grpc.SendInfoAfterConsegnaGrpc;
@@ -148,11 +149,15 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             Drone masterCaduto = MethodSupport.takeDroneSuccessivo(d, drones);
                             LOGGER.info("IL DRONE PRIMA DEL MASTER SI È ACCORTO CHE IL MASTER È CADUTO, INDICE UNA NUOVA ELEZIONE");
                             startElection(drones, d, masterCaduto);
+                            AsynchronousMedthods.asynchronousStartElection(drones, d);
                         }
-                        synchronized (drones) {
-                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        else {
+                            synchronized (drones) {
+                                drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                            }
                         }
                         forwardConsegna(consegna);
+
                     } catch (InterruptedException e) {
                         try {
                             channel.awaitTermination(1, TimeUnit.SECONDS);
@@ -193,34 +198,24 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {
         Thread.sleep(5000);
-        LOGGER.info("CONSEGNA EFFETTUATA");
-        drone.setBatteria(drone.getBatteria()-10);
-        drone.setCountConsegne(drone.getCountConsegne()+1);
-        drone.setKmPercorsiSingoloDrone(updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(drone, consegna));
-        drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + drone.getKmPercorsiSingoloDrone());
-        asynchronousSendStatisticsAndInfoToMaster(consegna);
-    }
-
-    private double updatePosizioneDroneAfterConsegnaAndComputeKmPercorsi(Drone drone, Consegna consegna) {
         Point posizioneInizialeDrone = new Point(drone.getPosizionePartenza().x, drone.getPosizionePartenza().y);
         Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
+        LOGGER.info("CONSEGNA EFFETTUATA");
         drone.setPosizionePartenza(posizioneConsegna);
-        return posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna);
+        drone.setBatteria(drone.getBatteria()-10);
+        drone.setCountConsegne(drone.getCountConsegne()+1);
+        drone.setKmPercorsiSingoloDrone(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
+        //drone.setKmPercorsiSingoloDrone(drone.getKmPercorsiSingoloDrone() + drone.getKmPercorsiSingoloDrone());
+        asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
-    /**
-     * @param consegna
-     * @throws InterruptedException
-     * Manda le informazioni dopo la consegna al drone master:
-     * - id drone, - timestamp, - km percorsi, - posizioneArrivo, - batteria residua
-     */
     private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) {
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
-            SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaStub stub = SendInfoAfterConsegnaGrpc.newStub(channel);
+            ReceiveInfoAfterConsegnaGrpc.ReceiveInfoAfterConsegnaStub stub = ReceiveInfoAfterConsegnaGrpc.newStub(channel);
 
             SendStat.Posizione pos = SendStat.Posizione.newBuilder()
                     .setX(consegna.getPuntoConsegna().getX())
@@ -238,7 +233,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     .addAllInquinamento(drone.getBufferPM10())
                     .build();
 
-            stub.sendInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
+            stub.receiveInfoDopoConsegna(stat, new StreamObserver<ackMessage>() {
                 @Override
                 public void onNext(ackMessage value) {
                 }

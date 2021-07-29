@@ -4,19 +4,19 @@ package gRPCService;
 import REST.beans.Drone;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
-import com.example.grpc.SendInfoAfterConsegnaGrpc;
+import com.example.grpc.ReceiveInfoAfterConsegnaGrpc;
 import io.grpc.stub.StreamObserver;
 import java.awt.*;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInfoAfterConsegnaImplBase {
+public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.ReceiveInfoAfterConsegnaImplBase {
 
     private final List<Drone> drones;
-    private static final Logger LOGGER = Logger.getLogger(SendInfoAfterConsegnaImpl.class.getSimpleName());
+    private static final Logger LOGGER = Logger.getLogger(ReceiveInfoAfterConsegnaImpl.class.getSimpleName());
     private final Object sync;
 
-    public SendInfoAfterConsegnaImpl(List<Drone> drones, Object sync){
+    public ReceiveInfoAfterConsegnaImpl(List<Drone> drones, Object sync){
         this.drones = drones;
         this.sync = sync;
     }
@@ -27,7 +27,7 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
      * Gestisce le informazioni che riceve dai droni che hanno eseguito una consegna aggiornando le informazioni nella lista dei droni
      */
     @Override
-    public void sendInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
+    public void receiveInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
         streamObserver.onNext(message);
@@ -48,11 +48,11 @@ public class SendInfoAfterConsegnaImpl extends SendInfoAfterConsegnaGrpc.SendInf
             //LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
             MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
 
+        }
 
-            if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
-                synchronized (sync) {
-                    sync.notify();
-                }
+        if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
+            synchronized (sync) {
+                sync.notifyAll();
             }
         }
     }

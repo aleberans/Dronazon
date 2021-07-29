@@ -189,12 +189,12 @@ public class AsynchronousMedthods {
         }
     }
 
-    public static void asynchronousSendWhoIsMaster(List<Drone> drones, Drone drone) {
+    public static void asynchronousReceiveWhoIsMaster(List<Drone> drones, Drone drone) {
         Drone succ = MethodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 
-            SendWhoIsMasterGrpc.SendWhoIsMasterStub stub = SendWhoIsMasterGrpc.newStub(channel);
+            ReceiveWhoIsMasterGrpc.ReceiveWhoIsMasterStub stub = ReceiveWhoIsMasterGrpc.newStub(channel);
 
             Message.WhoMaster info = Message.WhoMaster.newBuilder().build();
             stub.master(info, new StreamObserver<Message.WhoIsMaster>() {

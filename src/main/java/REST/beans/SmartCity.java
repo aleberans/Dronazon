@@ -20,7 +20,7 @@ public class SmartCity {
     private SmartCity(){smartCity = new ArrayList<>();}
 
     //singleton
-    public synchronized static SmartCity getInstance(){
+    public static synchronized SmartCity getInstance(){
         if(instance==null)
             instance = new SmartCity();
         return instance;

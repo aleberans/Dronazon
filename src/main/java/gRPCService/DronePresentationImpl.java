@@ -28,6 +28,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
             drones.sort(Comparator.comparingInt(Drone::getId));
         }
 
+
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }

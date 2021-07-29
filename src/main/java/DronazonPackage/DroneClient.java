@@ -31,7 +31,7 @@ public class DroneClient{
     private final MqttClient client;
     private final Object inDelivery;
     private final Object inForward;
-    private final List<Drone> drones;
+    private List<Drone> drones;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -51,11 +51,12 @@ public class DroneClient{
     public void start(){
         try{
             int portaAscolto = rnd.nextInt(1000) + 8080;
-
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 
-            List<Drone> drones = ServerMethods.addDroneServer(drone);
-            drones = MethodSupport.updatePositionPartenzaDrone(drones, drone);
+            synchronized (drones) {
+                drones = ServerMethods.addDroneServer(drone);
+                drones = MethodSupport.updatePositionPartenzaDrone(drones, drone);
+            }
             if (drones.size()==1){
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
@@ -81,7 +82,7 @@ public class DroneClient{
             }
             else {
                 AsynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
-                AsynchronousMedthods.asynchronousSendWhoIsMaster(drones, drone);
+                AsynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
                 AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
                         drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone))).getPosizionePartenza(),
                         drone.getDroneMaster());
@@ -105,10 +106,10 @@ public class DroneClient{
     private void startServiceGrpc(int portaAscolto, List<Drone> drones, Drone drone, MqttClient client) throws IOException {
         Server server = ServerBuilder.forPort(portaAscolto)
                 .addService(new DronePresentationImpl(drones))
-                .addService(new SendWhoIsMasterImpl(drone))
+                .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery, inForward))
-                .addService(new SendInfoAfterConsegnaImpl(drones, sync))
+                .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, sync, client))
                 .addService(new NewIdMasterImpl(drones, drone, sync))
@@ -237,21 +238,12 @@ public class DroneClient{
                             break;
                         } else {
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-                            /*if (drone.isInDelivery()) {
+                            if (drone.isInDelivery()) {
                                 synchronized (inDelivery) {
                                     LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
                                     inDelivery.wait();
                                 }
                             }
-                            LOGGER.info("IL DRONE HA FINITO LA DELIVERY, ESCO!");
-                            if (drone.isInForwarding()) {
-                                synchronized (inForward) {
-                                    LOGGER.info("IL DRONE È IN FORWARDING, WAIT...");
-                                    inForward.wait();
-                                }
-                            }
-
-                            LOGGER.info("IL DRONE HA FINITO DI FARE FORWARDING, ESCO!");*/
 
                             client.disconnect();
                             if (queueOrdini.size() > 0) {
@@ -289,8 +281,7 @@ public class DroneClient{
                 .thenComparing(Drone::getId));
         droni.sort(Collections.reverseOrder());
 
-        //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
-        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 15));
+        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() <= 20));
 
         while (!MethodSupport.thereIsDroneLibero(droni)) {
             synchronized (sync) {

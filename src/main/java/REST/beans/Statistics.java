@@ -1,5 +1,7 @@
 package REST.beans;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import java.sql.Time;
@@ -8,16 +10,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 @XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
 public class Statistics {
 
     private static Statistics instance;
 
-    private List<Statistic> statistics;
+    private final List<Statistic> statistics;
 
 
     private Statistics(){statistics = new ArrayList<>();}
 
-    public synchronized static Statistics getInstance(){
+    public static synchronized Statistics getInstance(){
         if(instance==null)
             instance = new Statistics();
         return instance;
@@ -58,7 +61,6 @@ public class Statistics {
         Timestamp t2 = Timestamp.valueOf(timestamp2);
         for (Statistic stat: statistics) {
             Timestamp timestampStat = Timestamp.valueOf(stat.getTimestamp());
-            System.out.println("Consegne: " +  stat.getNumeroConsegne());
             if (timestampStat.after(t1) || timestampStat.equals(t1)){
                 for (Statistic stat2: statistics) {
                     Timestamp timestampStat2 = Timestamp.valueOf(stat2.getTimestamp());
