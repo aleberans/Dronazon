@@ -46,15 +46,25 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
                             new Point(sendStat.getPosizioneArrivo().getX(), sendStat.getPosizioneArrivo().getY())
                     );
             //LOGGER.info("LISTA DEL DRONE AGGIORNATA CON LE STAT");
-            MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
+
+            Drone drone = MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones);
+            if ( !(drone.getIsMaster() && drone.getBatteria() < 20)) {
+                MethodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
+                synchronized (sync) {
+                    LOGGER.info("SVEGLIA SYNC DOPO RICEZIONE INFO DAL DRONE AL MASTER");
+                    sync.notifyAll();
+                }
+            }
 
         }
 
-        if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
+        /*if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
             synchronized (sync) {
                 LOGGER.info("MASTER HA RICEVUTO LE INFO, SVEGLIA SU SYNC");
                 sync.notifyAll();
             }
-        }
+        }*/
+
+
     }
 }

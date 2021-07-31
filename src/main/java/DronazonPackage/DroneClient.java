@@ -173,6 +173,14 @@ public class DroneClient{
         public void run(){
             while (true) {
                 try {
+                    synchronized (sync){
+                        LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
+                        while (!MethodSupport.thereIsDroneLibero(drones)) {
+                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                            sync.wait();
+                            LOGGER.info("SVEGLIATO SU SYNC");
+                        }
+                    }
                     asynchronousSendConsegna(drones, drone);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -290,15 +298,10 @@ public class DroneClient{
                 .thenComparing(Drone::getId));
         droni.sort(Collections.reverseOrder());
 
-        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() <= 20));
+        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        /*synchronized (sync){
-            while (!MethodSupport.thereIsDroneLibero(droni)) {
-                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                sync.wait();
-                LOGGER.info("SVEGLIATO SU SYNC");
-            }
-        }*/
+        LOGGER.info("DRONI DISPONIBILI: " + droni);
+
 
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                     .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
@@ -327,15 +330,6 @@ public class DroneClient{
 
             Drone droneACuiConsegnare = null;
             try {
-                List<Drone> droni = new ArrayList<>(drones);
-                droni.removeIf(dr -> (dr.getIsMaster() && dr.getBatteria() <= 20));
-                synchronized (sync){
-                    while (!MethodSupport.thereIsDroneLibero(droni)) {
-                        LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                        sync.wait();
-                        LOGGER.info("SVEGLIATO SU SYNC");
-                    }
-                }
                 droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -348,9 +342,10 @@ public class DroneClient{
                     .setIdDrone(droneACuiConsegnare.getId())
                     .build();
 
-            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
-
+            synchronized (drones) {
+                //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+                drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
+            }
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
 
@@ -382,6 +377,7 @@ public class DroneClient{
                     }
                 }
                 public void onCompleted() {
+                    LOGGER.info("CONSEGNA MANDATA NELL'ANELLO");
                     channel.shutdown();
                 }
             });

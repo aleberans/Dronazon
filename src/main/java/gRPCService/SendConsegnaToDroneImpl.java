@@ -265,9 +265,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             inDelivery.notify();
                         }
                     }
-                    synchronized (sync){
-                        sync.notifyAll();
-                    }
                     try {
                         //LOGGER.info("CHECK BATTERIA");
                         checkBatteryDrone(drone);
