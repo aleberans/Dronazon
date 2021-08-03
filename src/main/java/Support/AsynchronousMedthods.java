@@ -66,8 +66,6 @@ public class AsynchronousMedthods {
     }
 
     public static void asynchronousStartElection(List<Drone> drones, Drone drone){
-
-
         Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
@@ -85,7 +83,6 @@ public class AsynchronousMedthods {
                 public void onNext(Message.ackMessage value) {
 
                 }
-
                 @Override
                 public void onError(Throwable t) {
                     channel.shutdownNow();

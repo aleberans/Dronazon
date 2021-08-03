@@ -90,4 +90,13 @@ public class MethodSupport {
         return drones;
     }
 
+    public static boolean allDronesFreeFromElection(List<Drone> drones){
+        synchronized (drones){
+            for (Drone d: drones){
+                if (d.isInElection())
+                    return false;
+            }
+            return true;
+        }
+    }
 }

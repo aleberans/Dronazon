@@ -1,21 +1,26 @@
 package gRPCService;
 
 import DronazonPackage.DroneClient;
+import DronazonPackage.Ordine;
+import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
 import Support.MethodSupport;
+import Support.MqttMethods;
+import Support.ServerMethods;
+import com.example.grpc.Message;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
+import com.example.grpc.SendConsegnaToDroneGrpc;
 import com.example.grpc.SendUpdatedInfoToMasterGrpc;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
@@ -23,11 +28,16 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private static Drone drone;
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
     private final Object sync;
+    private final QueueOrdini queueOrdini = new QueueOrdini();
+    private final MqttClient client;
+    private final Object election;
 
-    public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync){
+    public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync, MqttClient client, Object election){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
+        this.client = client;
+        this.election = election;
     }
 
     /**
@@ -36,8 +46,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
      * mando la posizione e la batteria residua al master e inoltro il messaggio al drone successivo che farà esattamente la stessa cosa.
      * Altrimenti significa che il messaggio è tornato al drone designato come nuovo master
      * devo aggiornare la sua lista dei droni attivi
-     * @param idMaster
-     * @param streamObserver
      */
     @Override
     public void sendNewIdMaster(IdMaster idMaster, StreamObserver<ackMessage> streamObserver){
@@ -46,12 +54,10 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         streamObserver.onCompleted();
 
         drone.setDroneMaster(MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()));
+        drone.setInForwarding(true);
 
         if (idMaster.getIdNewMaster() != drone.getId()) {
-            /*LOGGER.info("IL MASTER PRIMA DI IMPOSTARLO È: " + drone.getDroneMaster().getId() + "\n"
-                    + ", ORA SETTO IL NUOVO MASTER CHE HA ID: " + MethodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()).getId());*/
-
-            LOGGER.info("ID MASTER DOPO SETTAGGIO: " + drone.getDroneMaster().getId());
+            LOGGER.info("ID MASTER DOPO ELEZIONE: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
             /*AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
                     MethodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
@@ -61,11 +67,198 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         }
         else{
             //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
-            synchronized (drones) {
-                drones = drones.stream().filter(d -> !d.consegnaAssegnata()).collect(Collectors.toList());
+            /*synchronized (drones) {
+                drones = drones.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
+            }*/
+            drone.setInDelivery(false);
+            drone.setInElection(false);
+            synchronized (drones){
+                MethodSupport.getDroneFromList(drone.getId(), drones).setInElection(false);
             }
+            synchronized (election){
+                if (MethodSupport.allDronesFreeFromElection(drones)) {
+                    LOGGER.info("TUTTI I DRONI FUORI DALL'ELEZIONE, NOTIFICA IN MODO CHE POSSA ENTRARE UN NUOVO DRONE");
+                    election.notify();
+                }
+            }
+            LOGGER.info("ANELLO NON PIU IN ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
+            MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
+            NewIdMasterImpl.SendConsegnaThread sendConsegnaThread = new NewIdMasterImpl.SendConsegnaThread(drones, drone);
+            sendConsegnaThread.start();
+            NewIdMasterImpl.SendStatisticToServer sendStatisticToServer = new NewIdMasterImpl.SendStatisticToServer(drones, queueOrdini);
+            sendStatisticToServer.start();
+
             synchronized (sync){
-                sync.notify();;
+                sync.notify();
+            }
+        }
+    }
+
+    class SendConsegnaThread extends Thread {
+
+        private final List<Drone> drones;
+        private final Drone drone;
+
+        public SendConsegnaThread(List<Drone> drones, Drone drone) {
+            this.drones = drones;
+            this.drone = drone;
+        }
+
+        @Override
+        public void run(){
+            while (true) {
+                try {
+                    synchronized (sync){
+                        LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
+                        while (!MethodSupport.thereIsDroneLibero(drones)) {
+                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                            sync.wait();
+                            LOGGER.info("SVEGLIATO SU SYNC");
+                        }
+                    }
+                    asynchronousSendConsegna(drones, drone);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
+        Drone d = MethodSupport.takeDroneFromList(drone, drones);
+        Ordine ordine = queueOrdini.consume();
+
+        Drone successivo = MethodSupport.takeDroneSuccessivo(d, drones);
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
+            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
+
+            Message.Consegna.Posizione posizioneRitiro = Message.Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoRitiro().x)
+                    .setY(ordine.getPuntoRitiro().y)
+                    .build();
+
+            Message.Consegna.Posizione posizioneConsegna = Message.Consegna.Posizione.newBuilder()
+                    .setX(ordine.getPuntoConsegna().x)
+                    .setY(ordine.getPuntoConsegna().y)
+                    .build();
+
+            Drone droneACuiConsegnare = null;
+            try {
+                droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            Message.Consegna consegna = Message.Consegna.newBuilder()
+                    .setIdConsegna(ordine.getId())
+                    .setPuntoRitiro(posizioneRitiro)
+                    .setPuntoConsegna(posizioneConsegna)
+                    .setIdDrone(droneACuiConsegnare.getId())
+                    .build();
+
+            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+            synchronized (drones) {
+                drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
+            }
+
+            //tolgo la consegna dalla coda delle consegne
+            queueOrdini.remove(ordine);
+
+            stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
+                @Override
+                public void onNext(Message.ackMessage value) {
+                    //LOGGER.info(value.getMessage());
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    try {
+                        LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
+                        channel.shutdownNow();
+                        synchronized (drones) {
+                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
+                        }
+                        synchronized (sync){
+                            LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
+                            while (!MethodSupport.thereIsDroneLibero(drones)) {
+                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                                sync.wait();
+                                LOGGER.info("SVEGLIATO SU SYNC");
+                            }
+                        }
+                        asynchronousSendConsegna(drones, d);
+                    } catch (InterruptedException e) {
+                        try {
+                            e.printStackTrace();
+                            LOGGER.info("Error" + t.getMessage());
+                            LOGGER.info("Error" + t.getCause());
+                            LOGGER.info("Error" + t.getLocalizedMessage());
+                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                            channel.awaitTermination(1, TimeUnit.SECONDS);
+                        } catch (InterruptedException interruptedException) {
+                            interruptedException.printStackTrace();
+                        }
+                    }
+                }
+                public void onCompleted() {
+                    channel.shutdownNow();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
+        List<Drone> droni = new ArrayList<>(drones);
+
+        droni.sort(Comparator.comparing(Drone::getBatteria)
+                .thenComparing(Drone::getId));
+        droni.sort(Collections.reverseOrder());
+
+        //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
+        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
+
+        //LOGGER.info("DRONI SENZA CONSEGNA: " + stampa(drones));
+        return droni.stream().filter(d -> !d.consegnaAssegnata())
+                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .orElse(null);
+    }
+
+    public String stampa(List<Drone> drones){
+        StringBuilder s = new StringBuilder();
+        for (Drone d: drones){
+            s.append("ID: ").append(d.getId()).append("\n");
+            s.append("POSIZIONE: ").append(d.getPosizionePartenza()).append("\n");
+        }
+        return s.toString();
+    }
+
+    static class SendStatisticToServer extends Thread{
+
+        private final List<Drone> drones;
+        private final QueueOrdini queueOrdini;
+
+        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini){
+            this.drones = drones;
+            this.queueOrdini = queueOrdini;
+        }
+
+        @Override
+        public void run(){
+            while(true){
+                if (queueOrdini.size() != 0) {
+                    ServerMethods.sendStatistics(drones);
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }
@@ -134,6 +327,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdown();
+                    drone.setInForwarding(false);
                 }
             });
             try {

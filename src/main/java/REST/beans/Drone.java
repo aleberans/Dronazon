@@ -16,6 +16,7 @@ public class Drone implements Comparable<Drone>{
     @JsonIgnore private Point posizionePartenza;
     @JsonIgnore private boolean isMaster;
     @JsonIgnore private int batteria = 100;
+    @JsonIgnore private boolean isInElection = false;
     @JsonIgnore private Drone droneMaster;
     @JsonIgnore private boolean consegnaAssegnata = false;
     @JsonIgnore private double kmPercorsiSingoloDrone = 0;
@@ -23,6 +24,7 @@ public class Drone implements Comparable<Drone>{
     @JsonIgnore private boolean isInDelivery = false;
     @JsonIgnore private boolean isInForwarding = false;
     @JsonIgnore private List<Double> bufferPM10 = new ArrayList<>();
+
 
     public Drone(){}
 
@@ -37,14 +39,24 @@ public class Drone implements Comparable<Drone>{
     }
 
     public synchronized void setInForwarding(boolean isInForwarding) {
-        isInForwarding = isInForwarding;
+        this.isInForwarding = isInForwarding;
         if (!isInForwarding)
             notify();
     }
 
     public synchronized void setInDelivery(boolean isInDelivery){
-        isInDelivery = isInDelivery;
+        this.isInDelivery = isInDelivery;
         if (!isInDelivery)
+            notify();
+    }
+
+    public synchronized boolean isInElection() {
+        return isInElection;
+    }
+
+    public synchronized void setInElection(boolean inElection) {
+        isInElection = inElection;
+        if (!isInElection)
             notify();
     }
 
