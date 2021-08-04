@@ -26,25 +26,46 @@ public class StatisticsService {
         return Response.status(201).entity(response).build();
     }
 
+    @Path("ultimeNStatistiche")
     @GET
-    @Path("/queryconsegne")
-    public Response getMediaNumeroConsegneDroniBetweenTimestamps(@QueryParam("from") String timestamp1, @QueryParam("to") String timestamp2){
-        List<Statistic> list = Statistics.getInstance().getList();
-        list =list.stream().filter(stat ->Timestamp.valueOf(stat.getTimestamp()).after(Timestamp.valueOf(timestamp1))
-                                                && Timestamp.valueOf(stat.getTimestamp()).before(Timestamp.valueOf(timestamp2)))
+    @Produces({"application/json"})
+    public Response getUltimeNStatistiche(@QueryParam("from") String from){
+        int n = Integer.parseInt(from);
+        List<Statistic> statistics = Statistics.getInstance().getStatistics();
+
+        statistics = statistics.stream()
+                .skip(statistics.size() - n).collect(Collectors.toList());
+
+        return Response.status(200).entity(Statistics.stampStatistics(statistics))
+                .build();
+    }
+
+    @Path("/mediaKmPercorsiConsegne")
+    @GET
+    @Produces({"application/json"})
+    public Response getMediaKmPercorsiDroniBetweenTimestamps(@QueryParam("timestamp1") String timestamp1, @QueryParam("timestamp2") String timestamp2){
+        List<Statistic> list = Statistics.getInstance().getStatistics();
+        list = list.stream().filter(stat -> (Timestamp.valueOf(stat.getTimestamp()).after(Timestamp.valueOf(timestamp1))
+                || Timestamp.valueOf(stat.getTimestamp()).equals(Timestamp.valueOf(timestamp1)))
+                                                && (Timestamp.valueOf(stat.getTimestamp()).before(Timestamp.valueOf(timestamp2))
+                || Timestamp.valueOf(stat.getTimestamp()).equals(Timestamp.valueOf(timestamp2))))
                         .collect(Collectors.toList());
-        double mean = list.stream().map(Statistic::getNumeroConsegne).reduce(0.0, Double::sum) / list.size();
+        double mean = list.stream().map(Statistic::getKmPercorsi).reduce(0.0, Double::sum) / list.size();
         return Response.status(200).entity(mean).build();
     }
 
+    @Path("/mediaNumeroConsegne")
+    @Produces({"application/json"})
     @GET
-    @Path("/querykm")
-    public Response getMediaKmPercorsiDroniBetweenTimestamps(@QueryParam("from") String timestamp1, @QueryParam("to") String timestamp2){
-        List<Statistic> list = Statistics.getInstance().getList();
-        list =list.stream().filter(stat ->Timestamp.valueOf(stat.getTimestamp()).after(Timestamp.valueOf(timestamp1))
-                                                && Timestamp.valueOf(stat.getTimestamp()).before(Timestamp.valueOf(timestamp2)))
+    public Response getMediaConsegne(@QueryParam("timestamp1") String timestamp1, @QueryParam("timestamp2") String timestamp2){
+        List<Statistic> list = Statistics.getInstance().getStatistics();
+        list = list.stream().filter(statistic ->
+                (Timestamp.valueOf(statistic.getTimestamp()).after(Timestamp.valueOf(timestamp1))
+                || Timestamp.valueOf(statistic.getTimestamp()).equals(Timestamp.valueOf(timestamp1)))
+                                                && (Timestamp.valueOf(statistic.getTimestamp()).before(Timestamp.valueOf(timestamp2))
+                || Timestamp.valueOf(statistic.getTimestamp()).equals(Timestamp.valueOf(timestamp2))))
                         .collect(Collectors.toList());
-        double mean = list.stream().map(Statistic::getKmPercorsi).reduce(0.0, Double::sum) / list.size();
+        double mean = list.stream().map(Statistic::getNumeroConsegne).reduce(0.0, Double::sum) / list.size();
         return Response.status(200).entity(mean).build();
     }
 

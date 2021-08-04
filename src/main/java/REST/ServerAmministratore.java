@@ -13,7 +13,6 @@ public class ServerAmministratore {
 
     private Dictionary statistics;
 
-
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServerFactory.create("http://"+HOST+":"+PORT+"/");
         server.start();

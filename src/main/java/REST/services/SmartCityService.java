@@ -15,11 +15,19 @@ import java.util.logging.Logger;
 @Path("smartcity")
 public class SmartCityService {
 
-    //restituisce la lista di Droni della smartCity
+
     @GET
     @Produces({"application/json"})
     public Response getSmartCityInformation(){
         return Response.ok(SmartCity.getInstance()).build();
+    }
+
+    //restituisce la lista di Droni della smartCity
+    @Path("listaDroni")
+    @GET
+    @Produces({"application/json"})
+    public Response getListaDroni(){
+        return Response.status(200).entity(SmartCity.getInstance().stampaSmartCity()).build();
     }
 
     @Path("add")

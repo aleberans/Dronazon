@@ -26,19 +26,13 @@ public class Statistics {
         return instance;
     }
 
-    public List<Statistic> getStatistics(){return new ArrayList<>(statistics);}
+    public synchronized List<Statistic> getStatistics(){return new ArrayList<>(statistics);}
 
-    public void addStatistic(Statistic stat){
+    public synchronized void addStatistic(Statistic stat){
         statistics.add(stat);
     }
 
-    public ArrayList<Statistic> getList(){
-        return new ArrayList<>(statistics);
-    }
-
-    public String stampStatistics(int n){
-
-        int count = 0;
+    public static String stampStatistics(List<Statistic> statistics){
         StringBuilder result = new StringBuilder();
         for (Statistic statistic: statistics) {
             result.append("timestamp: ").append(statistic.getTimestamp()).append("\n")
@@ -46,9 +40,6 @@ public class Statistics {
                     .append("KmPercorsi: ").append(statistic.getKmPercorsi()).append("\n")
                     .append("inquinamento: ").append(statistic.getInquinamento()).append("\n")
                     .append("batteriaResidua: ").append(statistic.getBatteriaResidua()).append("\n\n");
-            count ++;
-            if (count == n)
-                break;
         }
         return result.toString();
     }
