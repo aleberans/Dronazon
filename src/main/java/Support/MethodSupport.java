@@ -8,7 +8,13 @@ import java.util.Random;
 
 public class MethodSupport {
 
-    public static String getAllIdDroni(List<Drone> drones){
+    private final List<Drone> drones;
+
+    public MethodSupport(List<Drone> drones){
+        this.drones = drones;
+    }
+
+    public String getAllIdDroni(){
         synchronized (drones) {
             StringBuilder id = new StringBuilder();
             for (Drone d : drones) {
@@ -18,7 +24,7 @@ public class MethodSupport {
         }
     }
 
-    public static Drone takeDroneFromId(List<Drone> drones, int id){
+    public Drone takeDroneFromId(int id){
         synchronized (drones) {
             for (Drone d : drones) {
                 if (d.getId() == id)
@@ -28,7 +34,7 @@ public class MethodSupport {
         }
     }
 
-    public static Drone findDrone(List<Drone> drones, Drone drone){
+    public Drone findDrone(Drone drone){
         synchronized (drones) {
             Drone dro = null;
             for (Drone d : drones) {
@@ -39,13 +45,13 @@ public class MethodSupport {
         }
     }
 
-    public static Drone takeDroneFromList(Drone drone, List<Drone> drones){
+    public Drone takeDroneFromList(Drone drone){
         synchronized (drones){
-            return drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone)));
+            return drones.get(drones.indexOf(findDrone(drone)));
         }
     }
 
-    public static boolean thereIsDroneLibero(List<Drone> drones){
+    public boolean thereIsDroneLibero(){
         synchronized(drones) {
             for (Drone d : drones) {
                 if (!d.consegnaAssegnata()) {
@@ -56,7 +62,7 @@ public class MethodSupport {
         }
     }
 
-    public static boolean allDroniLiberi(List<Drone> drones){
+    public boolean allDroniLiberi(){
         synchronized(drones) {
             for (Drone d : drones) {
                 if (d.consegnaAssegnata())
@@ -66,31 +72,30 @@ public class MethodSupport {
         }
     }
 
-    public static Drone takeDroneSuccessivo(Drone drone, List<Drone> drones){
+    public Drone takeDroneSuccessivo(Drone drone){
         synchronized(drones) {
-            int pos = drones.indexOf(MethodSupport.findDrone(drones, drone));
-
+            int pos = drones.indexOf(findDrone(drone));
             return drones.get((pos + 1) % drones.size());
         }
     }
 
-    public static Drone getDroneFromList(int id, List<Drone> drones){
+    public Drone getDroneFromList(int id){
         synchronized(drones) {
-            return drones.get(drones.indexOf(MethodSupport.takeDroneFromId(drones, id)));
+            return drones.get(drones.indexOf(takeDroneFromId(id)));
         }
     }
 
-    public static List<Drone> updatePositionPartenzaDrone(List<Drone> drones, Drone drone){
+    public List<Drone> updatePositionPartenzaDrone(Drone drone){
         Random rnd = new Random();
         Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
         synchronized (drones) {
-            drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone))).setPosizionePartenza(posizionePartenza);
+            drones.get(drones.indexOf(findDrone(drone))).setPosizionePartenza(posizionePartenza);
             drone.setPosizionePartenza(posizionePartenza);
         }
         return drones;
     }
 
-    public static boolean allDronesFreeFromElection(List<Drone> drones){
+    public boolean allDronesFreeFromElection(){
         synchronized (drones){
             for (Drone d: drones){
                 if (d.isInElection())

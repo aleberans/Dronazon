@@ -8,7 +8,6 @@ public class PingAliveImpl extends PingAliveGrpc.PingAliveImplBase {
 
     @Override
     public void ping(PingMessage pingMessage, StreamObserver<PingMessage> streamObserver){
-
         PingMessage message = PingMessage.newBuilder().build();
 
         streamObserver.onNext(message);

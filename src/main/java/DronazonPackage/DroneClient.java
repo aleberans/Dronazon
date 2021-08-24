@@ -4,18 +4,12 @@ import REST.beans.Drone;
 import SImulatori.Measurement;
 import SImulatori.PM10Simulator;
 import Support.*;
-import com.example.grpc.*;
 import gRPCService.*;
 import io.grpc.*;
-import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
-
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 
@@ -31,6 +25,8 @@ public class DroneClient{
     private final Object inForward;
     private List<Drone> drones;
     private final Object election;
+    private final MethodSupport methodSupport;
+    private final AsynchronousMedthods asynchronousMedthods;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -45,9 +41,10 @@ public class DroneClient{
         inForward = new Object();
         drones = new ArrayList<>();
         election = new Object();
+        methodSupport = new MethodSupport(drones);
+        asynchronousMedthods = new AsynchronousMedthods(drones);
     }
-
-
+    
     public void start(){
         try{
             LOGGER.setUseParentHandlers(false);
@@ -59,14 +56,13 @@ public class DroneClient{
             int portaAscolto = rnd.nextInt(1000) + 8080;
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 
-            synchronized (drones) {
-                drones = ServerMethods.addDroneServer(drone);
-                drones = MethodSupport.updatePositionPartenzaDrone(drones, drone);
-            }
+            drones = ServerMethods.addDroneServer(drone);
+            drones = methodSupport.updatePositionPartenzaDrone(drone);
+
             if (drones.size()==1){
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
-                MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+                methodSupport.getDroneFromList(drone.getId()).setIsMaster(true);
             }
             else
                 drone.setIsMaster(false);
@@ -80,26 +76,26 @@ public class DroneClient{
             if (drone.getIsMaster()) {
                 MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
 
-                SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
+                Threads.SendConsegnaThread sendConsegnaThread = new Threads.SendConsegnaThread(drones, drone, sync, queueOrdini);
                 sendConsegnaThread.start();
 
 
-                SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
+                Threads.SendStatisticToServer sendStatisticToServer = new Threads.SendStatisticToServer(drones, queueOrdini);
                 sendStatisticToServer.start();
             }
             else {
-                AsynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
-                AsynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
-                AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
-                        drones.get(drones.indexOf(MethodSupport.findDrone(drones, drone))).getPosizionePartenza(),
+                asynchronousMedthods.asynchronousSendDroneInformation(drone);
+                asynchronousMedthods.asynchronousReceiveWhoIsMaster(drone);
+                asynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
+                        drones.get(drones.indexOf(methodSupport.findDrone(drone))).getPosizionePartenza(),
                         drone.getDroneMaster());
             }
 
-            PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
+            Threads.PingeResultThread pingeResultThread = new Threads.PingeResultThread(drones, drone);
             pingeResultThread.start();
 
             //start Thread in attesa di quit
-            StopThread stop = new StopThread(drone, drones);
+            Threads.StopThread stop = new Threads.StopThread(drone, drones, inDelivery, inForward, client, queueOrdini, sync);
             stop.start();
 
             startSensori(drone);
@@ -116,12 +112,12 @@ public class DroneClient{
                 .addService(new DronePresentationImpl(drones, sync, election))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones))
-                .addService(new SendConsegnaToDroneImpl(drones, drone, election, queueOrdini, client, sync, inDelivery, inForward))
+                .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery, inForward))
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync))
                 .addService(new PingAliveImpl())
-                .addService(new ElectionImpl(drone, drones, sync))
+                .addService(new ElectionImpl(drone, drones))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election))
-                .addService(new SendUpdatedInfoToMasterImpl(drones, drone, sync, inForward))
+                .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward))
                 .build();
         server.start();
     }
@@ -135,270 +131,6 @@ public class DroneClient{
                                 .reduce(0.0, Double::sum)
                                 /8.0));
         new PM10Simulator(pm10Buffer).start();
-    }
-
-    static class SendStatisticToServer extends Thread{
-
-        private final List<Drone> drones;
-        private final QueueOrdini queueOrdini;
-
-        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini){
-            this.drones = drones;
-            this.queueOrdini = queueOrdini;
-        }
-
-        @Override
-        public void run(){
-            while(true){
-                if (queueOrdini.size() != 0) {
-                    ServerMethods.sendStatistics(drones);
-                    try {
-                        Thread.sleep(10000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-    }
-
-    class SendConsegnaThread extends Thread {
-
-        private final List<Drone> drones;
-        private final Drone drone;
-
-        public SendConsegnaThread(List<Drone> drones, Drone drone) {
-            this.drones = drones;
-            this.drone = drone;
-        }
-
-        @Override
-        public void run(){
-            while (true) {
-                try {
-                    synchronized (sync){
-                        LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
-                        while (!MethodSupport.thereIsDroneLibero(drones)) {
-                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                            sync.wait();
-                            LOGGER.info("SVEGLIATO SU SYNC");
-                        }
-                    }
-                    asynchronousSendConsegna(drones, drone);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    class PingeResultThread extends Thread{
-
-        private final List<Drone> drones;
-        private final Drone drone;
-
-        public PingeResultThread(List<Drone> drones, Drone drone) {
-            this.drones = drones;
-            this.drone = drone;
-        }
-
-        @Override
-        public void run(){
-            while(true){
-                try {
-                    AsynchronousMedthods.asynchronousPingAlive(drone, drones);
-                    LOGGER.info("ID DEL DRONE: " + drone.getId() + "\n"
-                            + "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n"
-                            + "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() +  "\n"
-                            + "TOTALE KM PERCORSI: "+ drone.getKmPercorsiSingoloDrone() + "\n"
-                            + "P10 RILEVATO: " + drone.getBufferPM10() + "\n"
-                            + "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() +    "\n"
-                            + "LISTA DRONI ATTUALE: " + MethodSupport.getAllIdDroni(drones) + "\n");
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    class StopThread extends Thread {
-
-        private final Drone drone;
-        private final List<Drone> drones;
-
-        public StopThread(Drone drone, List<Drone> drones) {
-            this.drone = drone;
-            this.drones = drones;
-        }
-
-        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
-
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    if (bf.readLine().equals("quit")) {
-                        if (!drone.getIsMaster()) {
-                            synchronized (inDelivery) {
-                                while (drone.isInDelivery()) {
-                                    LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
-                                    inDelivery.wait();
-                                }
-                            }
-                            LOGGER.info("IL DRONE HA FINITO LA DELIVERY, ESCO!");
-                            synchronized (inForward) {
-                                while (drone.isInForwarding()) {
-                                    LOGGER.info("IL DRONE È IN FORWARDING, WAIT...");
-                                    inForward.wait();
-                                }
-                            }
-                            LOGGER.info("IL DRONE HA FINITO DI FARE FORWARDING, ESCO!");
-                            ServerMethods.removeDroneServer(drone);
-                            break;
-                        } else {
-                            client.disconnect();
-                            LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-                            LOGGER.info("STATO DRONE: \n" +
-                                    "DELIVERY: "  + drone.isInDelivery() + "\n" +
-                                    "FORWARDING: " + drone.isInForwarding());
-                            synchronized (inDelivery) {
-                                while (drone.isInDelivery()) {
-                                    LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
-                                    inDelivery.wait();
-                                }
-                            }
-                            synchronized (sync) {
-                                while (queueOrdini.size() > 0 || !MethodSupport.thereIsDroneLibero(drones)) {
-                                    LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                                            + queueOrdini.size());
-                                    sync.wait();
-                                }
-                            }
-                            LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
-                            MethodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
-                            synchronized (sync) {
-                                while (!MethodSupport.allDroniLiberi(drones)) {
-                                    LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE");
-                                    sync.wait();
-                                }
-                            }
-                            ServerMethods.removeDroneServer(drone);
-                            ServerMethods.sendStatistics(drones);
-                            break;
-                        }
-                    }
-                }catch (MqttException | IOException | InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-                LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
-                System.exit(0);
-            }
-        }
-
-    public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
-        List<Drone> droni = new ArrayList<>(drones);
-
-        droni.sort(Comparator.comparing(Drone::getBatteria)
-                .thenComparing(Drone::getId));
-        droni.sort(Collections.reverseOrder());
-
-        droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
-
-        LOGGER.info("DRONI DISPONIBILI: " + droni);
-
-        return droni.stream().filter(d -> !d.consegnaAssegnata())
-                    .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                    .orElse(null);
-    }
-
-    public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
-
-        Drone d = MethodSupport.takeDroneFromList(drone, drones);
-        Ordine ordine = queueOrdini.consume();
-
-        Drone successivo = MethodSupport.takeDroneSuccessivo(d, drones);
-        Context.current().fork().run( () -> {
-            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
-            SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
-
-            Message.Consegna.Posizione posizioneRitiro = Message.Consegna.Posizione.newBuilder()
-                    .setX(ordine.getPuntoRitiro().x)
-                    .setY(ordine.getPuntoRitiro().y)
-                    .build();
-
-            Message.Consegna.Posizione posizioneConsegna = Message.Consegna.Posizione.newBuilder()
-                    .setX(ordine.getPuntoConsegna().x)
-                    .setY(ordine.getPuntoConsegna().y)
-                    .build();
-
-            Drone droneACuiConsegnare = null;
-            try {
-                droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            Message.Consegna consegna = Message.Consegna.newBuilder()
-                    .setIdConsegna(ordine.getId())
-                    .setPuntoRitiro(posizioneRitiro)
-                    .setPuntoConsegna(posizioneConsegna)
-                    .setIdDrone(droneACuiConsegnare.getId())
-                    .build();
-
-            synchronized (drones) {
-                //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-                drones.get(drones.indexOf(MethodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
-            }
-            //tolgo la consegna dalla coda delle consegne
-            queueOrdini.remove(ordine);
-
-            stub.sendConsegna(consegna, new StreamObserver<Message.ackMessage>() {
-                @Override
-                public void onNext(Message.ackMessage value) {
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    try {
-                        LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
-                        channel.shutdownNow();
-                        synchronized (drones) {
-                            drones.remove(MethodSupport.takeDroneSuccessivo(d, drones));
-                        }
-                        synchronized (sync){
-                            while (!MethodSupport.thereIsDroneLibero(drones)) {
-                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                                sync.wait();
-                                LOGGER.info("SVEGLIATO SU SYNC");
-                            }
-                        }
-                        asynchronousSendConsegna(drones, d);
-                    } catch (InterruptedException e) {
-                        try {
-                            e.printStackTrace();
-                            LOGGER.info("Error" + t.getMessage());
-                            LOGGER.info("Error" + t.getCause());
-                            LOGGER.info("Error" + t.getLocalizedMessage());
-                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                            channel.awaitTermination(1, TimeUnit.SECONDS);
-                        } catch (InterruptedException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-                    }
-                }
-                public void onCompleted() {
-                    LOGGER.info("CONSEGNA MANDATA NELL'ANELLO");
-                    channel.shutdown();
-                }
-            });
-            try {
-                channel.awaitTermination(10, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
     }
 
     public static void main(String[] args) throws MqttException {

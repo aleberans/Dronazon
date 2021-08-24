@@ -12,9 +12,11 @@ import java.util.List;
 public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc.SendPositionToDroneMasterImplBase {
 
     private final List<Drone> drones;
+    private static MethodSupport methodSupport = null;
 
     public SendPositionToDroneMasterImpl(List<Drone> drones){
         this.drones = drones;
+        methodSupport = new MethodSupport(drones);
     }
 
     @Override
@@ -24,11 +26,11 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
         streamObserver.onNext(message);
         streamObserver.onCompleted();
         synchronized (drones) {
-            updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
+            updatePositionDrone(info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
         }
     }
 
-    public static void updatePositionDrone(List<Drone> drones, int id, Point position){
-        MethodSupport.findDrone(drones, MethodSupport.takeDroneFromId(drones, id)).setPosizionePartenza(position);
+    public static void updatePositionDrone(int id, Point position){
+        methodSupport.findDrone(methodSupport.takeDroneFromId(id)).setPosizionePartenza(position);
     }
 }

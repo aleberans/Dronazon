@@ -18,11 +18,13 @@ public class DronePresentationImpl extends DronePresentationImplBase{
     private final Object sync;
     private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
     private final Object election;
+    private final MethodSupport methodSupport;
 
     public DronePresentationImpl(List<Drone> drones, Object sync, Object election){
         this.drones = drones;
         this.sync = sync;
         this.election = election;
+        methodSupport = new MethodSupport(drones);
     }
 
     @Override
@@ -32,7 +34,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         synchronized (election) {
-            while (!MethodSupport.allDronesFreeFromElection(drones)){
+            while (!methodSupport.allDronesFreeFromElection()){
                 try {
                     LOGGER.info("ASPETTA A PRESENTARSI PERCHE' L'ANELLO STA FACENDO UN'ELEZIONE");
                     election.wait();
