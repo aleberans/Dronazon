@@ -134,7 +134,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         Drone d = methodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -185,7 +185,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                         LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
                         synchronized (drones) {
-                            drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                            drones.remove(methodSupport.takeDroneSuccessivo(d));
                         }
                         synchronized (sync){
                             LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
@@ -312,7 +312,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
     public void forwardNewIdMaster(IdMaster idMaster){
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();

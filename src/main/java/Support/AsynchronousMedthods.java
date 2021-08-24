@@ -29,7 +29,7 @@ public class AsynchronousMedthods {
 
     public void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
 
         final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
         PingAliveGrpc.PingAliveStub stub = PingAliveGrpc.newStub(channel);
@@ -71,7 +71,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousStartElection(List<Drone> drones, Drone drone){
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -192,7 +192,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousReceiveWhoIsMaster(List<Drone> drones, Drone drone) {
-        Drone succ = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone succ = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 

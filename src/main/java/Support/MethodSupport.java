@@ -72,11 +72,10 @@ public class MethodSupport {
         }
     }
 
-    public Drone takeDroneSuccessivo(Drone drone, List<Drone> droni){
+    public Drone takeDroneSuccessivo(Drone drone){
         synchronized(drones) {
-            int pos = droni.indexOf(findDrone(droni, drone));
-
-            return droni.get((pos + 1) % droni.size());
+            int pos = drones.indexOf(findDrone(drones, drone));
+            return drones.get((pos + 1) % drones.size());
         }
     }
 

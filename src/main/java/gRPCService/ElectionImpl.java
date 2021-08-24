@@ -93,7 +93,7 @@ public class ElectionImpl extends ElectionImplBase {
     }
 
     private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua, List<Drone> drones){
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -136,7 +136,7 @@ public class ElectionImpl extends ElectionImplBase {
 
     private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
