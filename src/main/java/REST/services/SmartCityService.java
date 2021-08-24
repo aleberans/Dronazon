@@ -1,15 +1,12 @@
 package REST.services;
 
-import DronazonPackage.DroneClient;
 import REST.beans.Drone;
 import REST.beans.SmartCity;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.GenericEntity;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.List;
-import java.util.logging.Logger;
 
 
 @Path("smartcity")

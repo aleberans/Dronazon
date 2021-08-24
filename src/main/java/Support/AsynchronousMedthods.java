@@ -1,6 +1,5 @@
 package Support;
 
-import DronazonPackage.DroneClient;
 import REST.beans.Drone;
 import com.example.grpc.*;
 import io.grpc.Context;
@@ -9,7 +8,7 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
-import java.util.*;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -29,7 +28,7 @@ public class AsynchronousMedthods {
 
     public void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
 
         final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
         PingAliveGrpc.PingAliveStub stub = PingAliveGrpc.newStub(channel);
@@ -71,7 +70,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousStartElection(List<Drone> drones, Drone drone){
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -192,7 +191,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousReceiveWhoIsMaster(List<Drone> drones, Drone drone) {
-        Drone succ = methodSupport.takeDroneSuccessivo(drone);
+        Drone succ = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 

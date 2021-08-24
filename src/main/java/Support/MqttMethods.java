@@ -1,12 +1,10 @@
 package Support;
 
-import DronazonPackage.DroneClient;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import com.google.gson.Gson;
 import org.eclipse.paho.client.mqttv3.*;
 
-import java.sql.Timestamp;
 import java.util.logging.Logger;
 
 public class MqttMethods {
@@ -30,7 +28,7 @@ public class MqttMethods {
 
                 @Override
                 public void messageArrived(String topic, MqttMessage message) {
-                    String time = new Timestamp(System.currentTimeMillis()).toString();
+                    //String time = new Timestamp(System.currentTimeMillis()).toString();
                     String receivedMessage = new String(message.getPayload());
                     /*LOGGER.info(clientId +" Received a Message! - Callback - Thread PID: " + Thread.currentThread().getId() +
                             "\n\tTime:    " + time +

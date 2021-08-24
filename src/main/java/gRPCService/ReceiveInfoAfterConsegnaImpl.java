@@ -23,11 +23,6 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
         this.methodSupport = methodSupport;
     }
 
-    /**
-     * @param sendStat
-     * @param streamObserver
-     * Gestisce le informazioni che riceve dai droni che hanno eseguito una consegna aggiornando le informazioni nella lista dei droni
-     */
     @Override
     public void receiveInfoDopoConsegna(SendStat sendStat, StreamObserver<ackMessage> streamObserver){
 
@@ -57,16 +52,6 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
                     sync.notifyAll();
                 }
             }
-
         }
-
-        /*if (drones.contains(MethodSupport.takeDroneFromId(drones, sendStat.getIdDrone()))) {
-            synchronized (sync) {
-                LOGGER.info("MASTER HA RICEVUTO LE INFO, SVEGLIA SU SYNC");
-                sync.notifyAll();
-            }
-        }*/
-
-
     }
 }

@@ -1,6 +1,5 @@
 package REST.services;
 
-import REST.beans.SmartCity;
 import REST.beans.Statistic;
 import REST.beans.Statistics;
 

@@ -1,24 +1,20 @@
 package gRPCService;
 
-import DronazonPackage.Ordine;
-import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
 import Support.MethodSupport;
-import Support.MqttMethods;
-import Support.ServerMethods;
 import com.example.grpc.ElectionGrpc;
-import com.example.grpc.ElectionGrpc.*;
-import com.example.grpc.Message;
-import com.example.grpc.Message.*;
+import com.example.grpc.ElectionGrpc.ElectionImplBase;
+import com.example.grpc.ElectionGrpc.ElectionStub;
+import com.example.grpc.Message.ElectionMessage;
+import com.example.grpc.Message.IdMaster;
+import com.example.grpc.Message.ackMessage;
 import com.example.grpc.NewIdMasterGrpc;
-import com.example.grpc.SendConsegnaToDroneGrpc;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.eclipse.paho.client.mqttv3.*;
 
-import java.util.*;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -61,13 +57,6 @@ public class ElectionImpl extends ElectionImplBase {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
-
-            /*MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
-            SendConsegnaThread sendConsegnaThread = new SendConsegnaThread(drones, drone);
-            sendConsegnaThread.start();
-            SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
-            sendStatisticToServer.start();*/
         }
         else {
             if (currentBatteriaResidua < drone.getBatteria()) {
@@ -93,7 +82,7 @@ public class ElectionImpl extends ElectionImplBase {
     }
 
     private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua, List<Drone> drones){
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -136,7 +125,7 @@ public class ElectionImpl extends ElectionImplBase {
 
     private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 

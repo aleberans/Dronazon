@@ -78,9 +78,9 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             }*/
             drone.setInDelivery(false);
             drone.setInElection(false);
-            synchronized (drones){
-                methodSupport.getDroneFromList(drone.getId(), drones).setInElection(false);
-            }
+
+            methodSupport.getDroneFromList(drone.getId(), drones).setInElection(false);
+
             synchronized (election){
                 if (methodSupport.allDronesFreeFromElection(drones)) {
                     LOGGER.info("TUTTI I DRONI FUORI DALL'ELEZIONE, NOTIFICA IN MODO CHE POSSA ENTRARE UN NUOVO DRONE");
@@ -134,7 +134,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         Drone d = methodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(d);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -185,7 +185,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                         LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
                         synchronized (drones) {
-                            drones.remove(methodSupport.takeDroneSuccessivo(d));
+                            drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                         }
                         synchronized (sync){
                             LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
@@ -235,15 +235,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
-    }
-
-    public String stampa(List<Drone> drones){
-        StringBuilder s = new StringBuilder();
-        for (Drone d: drones){
-            s.append("ID: ").append(d.getId()).append("\n");
-            s.append("POSIZIONE: ").append(d.getPosizionePartenza()).append("\n");
-        }
-        return s.toString();
     }
 
     static class SendStatisticToServer extends Thread{
@@ -312,7 +303,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
     public void forwardNewIdMaster(IdMaster idMaster){
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();

@@ -1,7 +1,6 @@
 package REST.beans;
 
 import javax.xml.bind.annotation.XmlRootElement;
-import java.sql.Timestamp;
 
 @XmlRootElement
 public class Statistic {

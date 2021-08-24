@@ -72,10 +72,10 @@ public class MethodSupport {
         }
     }
 
-    public Drone takeDroneSuccessivo(Drone drone){
+    public Drone takeDroneSuccessivo(Drone drone, List<Drone> droni){
         synchronized(drones) {
-            int pos = drones.indexOf(findDrone(drones, drone));
-            return drones.get((pos + 1) % drones.size());
+            int pos = droni.indexOf(findDrone(droni, drone));
+            return droni.get((pos + 1) % droni.size());
         }
     }
 
@@ -92,7 +92,7 @@ public class MethodSupport {
             droni.get(droni.indexOf(findDrone(droni, drone))).setPosizionePartenza(posizionePartenza);
             drone.setPosizionePartenza(posizionePartenza);
         }
-        return drones;
+        return droni;
     }
 
     public boolean allDronesFreeFromElection(List<Drone> droni){

@@ -105,7 +105,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
 
         Drone d = methodSupport.takeDroneFromList(drone, drones);
-        Drone successivo = methodSupport.takeDroneSuccessivo(d);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
@@ -121,8 +121,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onError(Throwable t) {
                     try {
                         channel.shutdownNow();
-                        if (methodSupport.takeDroneSuccessivo(d).getIsMaster()){
-                            Drone masterCaduto = methodSupport.takeDroneSuccessivo(d);
+                        if (methodSupport.takeDroneSuccessivo(d, drones).getIsMaster()){
+                            Drone masterCaduto = methodSupport.takeDroneSuccessivo(d, drones);
                             LOGGER.info("IL DRONE PRIMA DEL MASTER SI È ACCORTO CHE IL MASTER È CADUTO, INDICE UNA NUOVA ELEZIONE");
                             synchronized (drones) {
                                 startElection(drones, d, masterCaduto);
@@ -131,7 +131,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                         }
                         else {
                             synchronized (drones) {
-                                drones.remove(methodSupport.takeDroneSuccessivo(d));
+                                drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                             }
                         }
                         forwardConsegna(consegna);

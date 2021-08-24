@@ -1,14 +1,12 @@
 package gRPCService;
-import DronazonPackage.DroneClient;
+
 import REST.beans.Drone;
 import Support.MethodSupport;
 import com.example.grpc.DronePresentationGrpc.DronePresentationImplBase;
-import com.example.grpc.Message.*;
+import com.example.grpc.Message.SendInfoDrone;
+import com.example.grpc.Message.ackMessage;
 import io.grpc.stub.StreamObserver;
 
-import java.awt.*;
-import java.lang.reflect.Method;
-import java.security.acl.LastOwnerException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.logging.Logger;

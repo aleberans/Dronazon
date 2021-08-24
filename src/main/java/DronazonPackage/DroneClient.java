@@ -185,7 +185,6 @@ public class DroneClient{
             while (true) {
                 try {
                     synchronized (sync){
-                        LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
                         while (!methodSupport.thereIsDroneLibero(drones)) {
                             LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
                             sync.wait();
@@ -326,7 +325,7 @@ public class DroneClient{
         Drone d = methodSupport.takeDroneFromList(drone, drones);
         Ordine ordine = queueOrdini.consume();
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(d);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -373,7 +372,7 @@ public class DroneClient{
                         LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                         channel.shutdownNow();
                         synchronized (drones) {
-                            drones.remove(methodSupport.takeDroneSuccessivo(d));
+                            drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                         }
                         synchronized (sync){
                             while (!methodSupport.thereIsDroneLibero(drones)) {
