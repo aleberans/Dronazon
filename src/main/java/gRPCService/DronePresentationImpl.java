@@ -7,6 +7,7 @@ import com.example.grpc.Message.*;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
+import java.lang.reflect.Method;
 import java.security.acl.LastOwnerException;
 import java.util.Comparator;
 import java.util.List;
@@ -18,11 +19,13 @@ public class DronePresentationImpl extends DronePresentationImplBase{
     private final Object sync;
     private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
     private final Object election;
+    private final MethodSupport methodSupport;
 
-    public DronePresentationImpl(List<Drone> drones, Object sync, Object election){
+    public DronePresentationImpl(List<Drone> drones, Object sync, Object election, MethodSupport methodSupport){
         this.drones = drones;
         this.sync = sync;
         this.election = election;
+        this.methodSupport = methodSupport;
     }
 
     @Override
@@ -32,7 +35,7 @@ public class DronePresentationImpl extends DronePresentationImplBase{
         ackMessage message = ackMessage.newBuilder().setMessage("").build();
 
         synchronized (election) {
-            while (!MethodSupport.allDronesFreeFromElection(drones)){
+            while (!methodSupport.allDronesFreeFromElection(drones)){
                 try {
                     LOGGER.info("ASPETTA A PRESENTARSI PERCHE' L'ANELLO STA FACENDO UN'ELEZIONE");
                     election.wait();

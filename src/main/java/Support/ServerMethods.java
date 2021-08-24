@@ -17,7 +17,13 @@ import java.util.List;
 
 public class ServerMethods {
 
-    public static String sendStatistics(List<Drone> drones){
+    private final List<Drone> drones;
+
+    public ServerMethods(List<Drone> drones){
+        this.drones= drones;
+    }
+
+    public String sendStatistics(List<Drone> droni){
         Client client = Client.create();
         WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
 
@@ -31,13 +37,13 @@ public class ServerMethods {
         int countDroniAttivi;
 
         synchronized (drones) {
-            mediaInquinamento = drones.stream().map(
+            mediaInquinamento = droni.stream().map(
                     drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
                             / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
-            mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
-            mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
-            mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
-            countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
+            mediaCountConsegne = droni.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
+            mediaBatteriaResidua = droni.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
+            mediaKmPercorsi = droni.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
+            countDroniAttivi = (int) droni.stream().map(Drone::getId).count();
         }
 
         Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
@@ -48,20 +54,23 @@ public class ServerMethods {
         return "Output from Server .... \n" + response.getEntity(String.class);
     }
 
-    public static List<Drone> addDroneServer(Drone drone){
-        ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-        clientConfig.getClasses().add(JacksonJsonProvider.class);
-        Client client = Client.create(clientConfig);
+    public List<Drone> addDroneServer(Drone drone){
+        synchronized (drones) {
+            ClientConfig clientConfig = new DefaultClientConfig();
+            clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+            clientConfig.getClasses().add(JacksonJsonProvider.class);
+            Client client = Client.create(clientConfig);
 
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
+            WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
-        ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
+            ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
 
-        return response.getEntity(new GenericType<List<Drone>>() {});
+            return response.getEntity(new GenericType<List<Drone>>() {
+            });
+        }
     }
 
-    public static void removeDroneServer(Drone drone){
+    public void removeDroneServer(Drone drone){
         ClientConfig clientConfig = new DefaultClientConfig();
         clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
         clientConfig.getClasses().add(JacksonJsonProvider.class);

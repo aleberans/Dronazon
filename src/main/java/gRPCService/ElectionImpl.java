@@ -27,13 +27,13 @@ public class ElectionImpl extends ElectionImplBase {
     private final Drone drone;
     private final List<Drone> drones;
     private final Logger LOGGER = Logger.getLogger(SendConsegnaToDroneImpl.class.getSimpleName());
-    private final Object sync;
+    private final MethodSupport methodSupport;
 
 
-    public ElectionImpl(Drone drone, List<Drone> drones, Object sync){
+    public ElectionImpl(Drone drone, List<Drone> drones, MethodSupport methodSupport){
         this.drone = drone;
         this.drones = drones;
-        this.sync = sync;
+        this.methodSupport = methodSupport;
     }
 
     @Override
@@ -54,7 +54,7 @@ public class ElectionImpl extends ElectionImplBase {
         if (currentIdMaster == drone.getId()){
             drone.setIsMaster(true);
             drone.setInDelivery(true);
-            MethodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+            methodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
             LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
             try {
                 electionCompleted(drone, currentIdMaster, drones);
@@ -71,20 +71,20 @@ public class ElectionImpl extends ElectionImplBase {
         }
         else {
             if (currentBatteriaResidua < drone.getBatteria()) {
-                MethodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
+                methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
                 forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
                 //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE, LIBERO IL DRONE CHE ERA OCCUPATO");
             } else if (currentBatteriaResidua > drone.getBatteria()) {
-                MethodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
+                methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
                 forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
                 //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
             } else {
                 if (currentIdMaster < drone.getId()) {
                     //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER, LIBERO IL DRONE CHE ERA OCCUPATO");
-                    MethodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
+                    methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
                     forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
                 } else if (currentIdMaster > drone.getId()) {
-                    MethodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
+                    methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
                     forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
                     //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
                 }
@@ -93,7 +93,7 @@ public class ElectionImpl extends ElectionImplBase {
     }
 
     private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua, List<Drone> drones){
-        Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -136,7 +136,7 @@ public class ElectionImpl extends ElectionImplBase {
 
     private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = MethodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
