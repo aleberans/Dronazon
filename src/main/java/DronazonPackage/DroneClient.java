@@ -111,7 +111,7 @@ public class DroneClient{
 
         }catch (Exception e) {
             e.printStackTrace();
-            LOGGER.info("PORTA GIA USATA, ESCO");
+            //LOGGER.info("PORTA GIA USATA, ESCO");
             System.exit(0);
         }
     }
