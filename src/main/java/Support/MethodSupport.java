@@ -1,6 +1,9 @@
 package Support;
 
 import REST.beans.Drone;
+import io.grpc.Context;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 
 import java.awt.*;
 import java.util.List;
@@ -85,14 +88,13 @@ public class MethodSupport {
         }
     }
 
-    public List<Drone> updatePositionPartenzaDrone(List<Drone> droni, Drone drone){
+    public void updatePositionPartenzaDrone(List<Drone> droni, Drone drone){
         Random rnd = new Random();
         Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
         synchronized (drones) {
             droni.get(droni.indexOf(findDrone(droni, drone))).setPosizionePartenza(posizionePartenza);
             drone.setPosizionePartenza(posizionePartenza);
         }
-        return droni;
     }
 
     public boolean allDronesFreeFromElection(List<Drone> droni){

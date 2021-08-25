@@ -8,7 +8,9 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
+import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -145,6 +147,48 @@ public class AsynchronousMedthods {
         });
     }
 
+    public void rechargeBattery(Drone drone, List<Drone> drones){
+        for (Drone d: drones) {
+            Context.current().fork().run(() -> {
+                final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":" + d.getPortaAscolto()).usePlaintext().build();
+
+                RechargeGrpc.RechargeStub stub = RechargeGrpc.newStub(channel);
+                Date date = new Date();
+                Timestamp ts = new Timestamp(date.getTime());
+                Message.MessageRecharge rec = Message.MessageRecharge.newBuilder()
+                        .setName("RechargingStation")
+                        .setId(drone.getId())
+                        .setTimestamp(ts.toString())
+                        .build();
+
+                stub.checkForRecharge(rec, new StreamObserver<Message.ackMessage>() {
+                    @Override
+                    public void onNext(Message.ackMessage value) {
+
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        LOGGER.info("Error" + t.getMessage());
+                        LOGGER.info("Error" + t.getCause());
+                        LOGGER.info("Error" + t.getLocalizedMessage());
+                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    }
+
+                    @Override
+                    public void onCompleted() {
+                        channel.shutdown();
+                    }
+                });
+                try {
+                    channel.awaitTermination(10, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+    }
+
     public void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
@@ -158,8 +202,6 @@ public class AsynchronousMedthods {
                 final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":" + dron.getPortaAscolto()).usePlaintext().build();
 
                 DronePresentationGrpc.DronePresentationStub stub = DronePresentationGrpc.newStub(channel);
-
-
                 Message.SendInfoDrone info = Message.SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
                         .setIndirizzoDrone(drone.getIndirizzoIpDrone()).build();
 

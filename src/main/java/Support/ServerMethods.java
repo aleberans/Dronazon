@@ -70,6 +70,21 @@ public class ServerMethods {
         }
     }
 
+    public List<Drone> takeListFromServer(){
+        synchronized (drones) {
+            ClientConfig clientConfig = new DefaultClientConfig();
+
+            Client client = Client.create(clientConfig);
+
+            WebResource webResource = client.resource("http://localhost:1337/smartcity");
+
+            ClientResponse response = webResource.type("application/json").post(ClientResponse.class);
+
+            return response.getEntity(new GenericType<List<Drone>>() {
+            });
+        }
+    }
+
     public void removeDroneServer(Drone drone){
         ClientConfig clientConfig = new DefaultClientConfig();
         clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);

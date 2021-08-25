@@ -63,7 +63,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.addHandler(handler);
     }
     @Override
-    public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver ) {
+    public void sendConsegna(Consegna consegna, StreamObserver<ackMessage> streamObserver) {
 
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();

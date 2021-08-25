@@ -113,4 +113,14 @@ service SendUpdatedInfoToMaster{
   rpc updatedInfo(Info) returns (ackMessage);
 }
 
+message MessageRecharge{
+  required string name=1;
+  required int32 id=2;
+  required string timestamp=3;
+}
+
+service Recharge{
+  rpc checkForRecharge(MessageRecharge) returns (ackMessage);
+}
+
 

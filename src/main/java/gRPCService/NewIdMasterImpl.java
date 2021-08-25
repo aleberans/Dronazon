@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 
 public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
-    private static List<Drone> drones;
-    private static Drone drone;
+    private final List<Drone> drones;
+    private final Drone drone;
     private static final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
     private final Object sync;
     private final QueueOrdini queueOrdini = new QueueOrdini();
@@ -114,7 +114,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             while (true) {
                 try {
                     synchronized (sync){
-                        LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
                         while (!methodSupport.thereIsDroneLibero(drones)) {
                             LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
                             sync.wait();
@@ -150,7 +149,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             Drone droneACuiConsegnare = null;
             try {
-                droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
+                droneACuiConsegnare = cercaDroneCheConsegna(ordine);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -187,7 +186,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                             drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                         }
                         synchronized (sync){
-                            LOGGER.info("DRONI PRIMA DEL WHILE: " + drones);
                             while (!methodSupport.thereIsDroneLibero(drones)) {
                                 LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
                                 sync.wait();
@@ -220,7 +218,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         });
     }
 
-    public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
+    public Drone cercaDroneCheConsegna(Ordine ordine) throws InterruptedException {
         List<Drone> droni = new ArrayList<>(drones);
 
         droni.sort(Comparator.comparing(Drone::getBatteria)

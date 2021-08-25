@@ -29,7 +29,7 @@ public class DroneClient{
     private final MqttClient client;
     private final Object inDelivery;
     private final Object inForward;
-    private List<Drone> drones;
+    private final List<Drone> drones;
     private final Object election;
     private final MethodSupport methodSupport;
     private final ServerMethods serverMethods;
@@ -65,8 +65,9 @@ public class DroneClient{
             int portaAscolto = rnd.nextInt(1000) + 8080;
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 
-            drones = serverMethods.addDroneServer(drone);
-            drones = methodSupport.updatePositionPartenzaDrone(drones, drone);
+            drones.addAll(serverMethods.addDroneServer(drone));
+
+            methodSupport.updatePositionPartenzaDrone(drones, drone);
 
             if (drones.size()==1){
                 drone.setIsMaster(true);
@@ -128,6 +129,7 @@ public class DroneClient{
                 .addService(new ElectionImpl(drone, drones, methodSupport))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
+                .addService(new RechargeImpl(drones, drone))
                 .build();
         server.start();
     }
@@ -295,15 +297,17 @@ public class DroneClient{
                             serverMethods.sendStatistics(drones);
                             break;
                         }
-                    }
+                    } else if (bf.readLine().equals("recharge"))
+                        asynchronousMedthods.rechargeBattery(drone, drones);
                 }catch (MqttException | IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
             }
-                LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
-                System.exit(0);
-            }
+            LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
+            System.exit(0);
         }
+    }
+
 
     public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
         List<Drone> droni = new ArrayList<>(drones);
