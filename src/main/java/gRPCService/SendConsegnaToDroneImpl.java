@@ -72,7 +72,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             try {
                 drone.setInDelivery(true);
                 LOGGER.info("IN CONSEGNA...");
-                LOGGER.info("CHECK STATO: " + drone.isInDelivery());
                 faiConsegna(consegna);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -188,7 +187,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) {
-
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
             ReceiveInfoAfterConsegnaGrpc.ReceiveInfoAfterConsegnaStub stub = ReceiveInfoAfterConsegnaGrpc.newStub(channel);
@@ -230,11 +228,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     drone.setBufferPM10(new ArrayList<>());
                     drone.setInDelivery(false);
                     synchronized (inDelivery) {
-                        LOGGER.info("NOTIFICA CHE HA FINITO LA CONSEGNA");
                         inDelivery.notify();
                     }
                     try {
-                        //LOGGER.info("CHECK BATTERIA");
                         checkBatteryDrone(drone);
                     } catch (MqttException | InterruptedException e) {
                         e.printStackTrace();
@@ -286,7 +282,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         synchronized (sync){
             while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)){
                 LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                        + queueOrdini.size());
+                        + queueOrdini.size() + "\n"
+                + "STATO DELLA LISTA: " + drones);
                 sync.wait();
             }
         }

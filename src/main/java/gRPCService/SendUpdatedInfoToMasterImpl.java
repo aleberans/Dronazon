@@ -1,6 +1,8 @@
 package gRPCService;
 
+import DronazonPackage.DroneClient;
 import REST.beans.Drone;
+import Support.LogFormatter;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendUpdatedInfoToMasterGrpc;
@@ -8,6 +10,7 @@ import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.SendUpdatedInfoToMasterImplBase {
 
@@ -15,6 +18,7 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
     private final Drone drone;
     private final Object inForward;
     private final MethodSupport methodSupport;
+    private final Logger LOGGER = Logger.getLogger(DroneClient .class.getSimpleName());
 
     public SendUpdatedInfoToMasterImpl(List<Drone> drones, Drone drone,
                                        Object inForward, MethodSupport methodSupport){
@@ -35,6 +39,7 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
             methodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
             methodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
             methodSupport.getDroneFromList(info.getId(), drones).setConsegnaAssegnata(false);
+
         }
         //SI METTE NON PIÙ IN FASE DI ELEZIONE E PUÒ COSI USCIRE
         drone.setInForwarding(false);

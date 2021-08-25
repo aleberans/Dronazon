@@ -214,8 +214,9 @@ public class DroneClient{
             while(true){
                 try {
                     asynchronousMedthods.asynchronousPingAlive(drone, drones);
-                    LOGGER.info("ID DEL DRONE: " + drone.getId() + "\n"
+                    LOGGER.info("\nID DEL DRONE: " + drone.getId() + "\n"
                             + "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n"
+                            + "POSIZIONE ATTUALE: " + drone.getPosizionePartenza() + "\n"
                             + "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() +  "\n"
                             + "TOTALE KM PERCORSI: "+ drone.getKmPercorsiSingoloDrone() + "\n"
                             + "P10 RILEVATO: " + drone.getBufferPM10() + "\n"
@@ -278,7 +279,7 @@ public class DroneClient{
                             synchronized (sync) {
                                 while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)) {
                                     LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                                            + queueOrdini.size());
+                                            + queueOrdini.size() + "\n" + "lista: " + drones);
                                     sync.wait();
                                 }
                             }

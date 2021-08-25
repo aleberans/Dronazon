@@ -124,7 +124,6 @@ public class ElectionImpl extends ElectionImplBase {
     }
 
     private void electionCompleted(Drone drone, int newId, List<Drone> drones) throws InterruptedException {
-
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();

@@ -21,6 +21,7 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
@@ -72,10 +73,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             asynchronousSendInfoAggiornateToNewMaster(drone);
         }
         else{
-            //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
-            /*synchronized (drones) {
-                drones = drones.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
-            }*/
+            LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+
             drone.setInDelivery(false);
             drone.setInElection(false);
 
@@ -232,6 +231,11 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
         //LOGGER.info("DRONI SENZA CONSEGNA: " + stampa(drones));
+        //scarto i droni che hanno una posizione nulla. Significa che non sono piu attivi
+        synchronized (drones) {
+                droni = droni.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
+        }
+        LOGGER.info("LISTA DRONI: " + droni);
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
@@ -302,9 +306,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     }
 
     public void forwardNewIdMaster(IdMaster idMaster){
-
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
-
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 
