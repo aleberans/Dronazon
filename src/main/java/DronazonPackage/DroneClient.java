@@ -34,6 +34,7 @@ public class DroneClient{
     private final MethodSupport methodSupport;
     private final ServerMethods serverMethods;
     private final AsynchronousMedthods asynchronousMedthods;
+    private final DroneRechargingQueue droneRechargingQueue;
 
     public DroneClient() throws MqttException {
         rnd = new Random();
@@ -51,6 +52,7 @@ public class DroneClient{
         methodSupport = new MethodSupport(drones);
         serverMethods = new ServerMethods(drones);
         asynchronousMedthods = new AsynchronousMedthods(methodSupport);
+        droneRechargingQueue = new DroneRechargingQueue();
     }
 
 
@@ -129,7 +131,7 @@ public class DroneClient{
                 .addService(new ElectionImpl(drone, drones, methodSupport))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
-                .addService(new RechargeImpl(drones, drone))
+                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods))
                 .build();
         server.start();
     }

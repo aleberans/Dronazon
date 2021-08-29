@@ -123,4 +123,13 @@ service Recharge{
   rpc checkForRecharge(MessageRecharge) returns (ackMessage);
 }
 
+message Answer{
+  required string answer=1;
+  required int32 id=2;
+}
+
+service AnswerRecharge{
+  rpc okRecharge(Answer) returns (ackMessage);
+}
+
 

@@ -23,6 +23,9 @@ public class Drone implements Comparable<Drone>{
     @JsonIgnore private int countConsegne = 0;
     @JsonIgnore private boolean isInDelivery = false;
     @JsonIgnore private boolean isInForwarding = false;
+    @JsonIgnore private boolean isInRecharging = false;
+    @JsonIgnore private boolean wantRecharge = false;
+    @JsonIgnore private boolean recharged = false;
     @JsonIgnore private List<Double> bufferPM10 = new ArrayList<>();
 
 
@@ -32,6 +35,14 @@ public class Drone implements Comparable<Drone>{
         this.id = id;
         this.portaAscolto = portaAscolto;
         this.indirizzoIpDrone = indirizzoIpDrone;
+    }
+
+    public synchronized boolean isRecharged() {
+        return recharged;
+    }
+
+    public synchronized void setRecharged(boolean recharged) {
+        this.recharged = recharged;
     }
 
     public synchronized boolean isInForwarding() {
@@ -58,6 +69,22 @@ public class Drone implements Comparable<Drone>{
         isInElection = inElection;
         if (!isInElection)
             notify();
+    }
+
+    public synchronized void setInRecharging(boolean inRecharging) {
+        isInRecharging = inRecharging;
+    }
+
+    public synchronized boolean isInRecharging() {
+        return isInRecharging;
+    }
+
+    public synchronized void setWantRecharging(boolean wantRecharge) {
+        this.wantRecharge = wantRecharge;
+    }
+
+    public synchronized boolean getWantRecharge() {
+        return wantRecharge;
     }
 
     public boolean isInDelivery() {

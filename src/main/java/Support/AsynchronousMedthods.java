@@ -189,6 +189,40 @@ public class AsynchronousMedthods {
         }
     }
 
+    public void asynchronousAnswerToRequestOfRecharge(Drone drone){
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+drone.getPortaAscolto()).usePlaintext().build();
+
+            AnswerRechargeGrpc.AnswerRechargeStub stub = AnswerRechargeGrpc.newStub(channel);
+            Message.Answer answer = Message.Answer.newBuilder().setAnswer("ok").setId(drone.getId()).build();
+
+            stub.okRecharge(answer, new StreamObserver<Message.ackMessage>() {
+                @Override
+                public void onNext(Message.ackMessage value) {
+
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
     public void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
