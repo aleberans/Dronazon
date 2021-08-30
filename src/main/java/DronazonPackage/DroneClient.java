@@ -35,8 +35,11 @@ public class DroneClient{
     private final ServerMethods serverMethods;
     private final AsynchronousMedthods asynchronousMedthods;
     private final DroneRechargingQueue droneRechargingQueue;
+    private final Object recharge;
+    private final BufferedReader bf;
 
-    public DroneClient() throws MqttException {
+    public DroneClient(BufferedReader bf) throws MqttException {
+        this.bf = bf;
         rnd = new Random();
         LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
         queueOrdini = new QueueOrdini();
@@ -52,7 +55,8 @@ public class DroneClient{
         methodSupport = new MethodSupport(drones);
         serverMethods = new ServerMethods(drones);
         asynchronousMedthods = new AsynchronousMedthods(methodSupport);
-        droneRechargingQueue = new DroneRechargingQueue();
+        droneRechargingQueue = new DroneRechargingQueue(methodSupport, drones);
+        recharge = new Object();
     }
 
 
@@ -92,7 +96,7 @@ public class DroneClient{
                 sendConsegnaThread.start();
 
 
-                SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini, serverMethods);
+                SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
                 sendStatisticToServer.start();
             }
             else {
@@ -107,8 +111,9 @@ public class DroneClient{
             pingeResultThread.start();
 
             //start Thread in attesa di quit
-            StopThread stop = new StopThread(drone, drones);
-            stop.start();
+            StopThread stoporRecharge = new StopThread(drone, bf);
+            stoporRecharge.start();
+
 
             startSensori(drone);
 
@@ -129,9 +134,10 @@ public class DroneClient{
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, methodSupport))
-                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods))
+                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
-                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods))
+                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, recharge))
+                .addService(new AnswerRechargeImpl(drones, drone, recharge, methodSupport, asynchronousMedthods, droneRechargingQueue))
                 .build();
         server.start();
     }
@@ -153,7 +159,7 @@ public class DroneClient{
         private final QueueOrdini queueOrdini;
         private final ServerMethods serverMethods;
 
-        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini, ServerMethods serverMethods){
+        public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini){
             this.drones = drones;
             this.queueOrdini = queueOrdini;
             this.serverMethods = new ServerMethods(drones);
@@ -234,23 +240,61 @@ public class DroneClient{
         }
     }
 
+    class RechargeThread extends Thread{
+
+        private final Drone drone;
+        private final BufferedReader bf;
+
+        public RechargeThread(Drone drone, BufferedReader bf){
+            this.drone = drone;
+            this.bf = bf;
+        }
+
+        @Override
+        public void run(){
+            while(true){
+                try {
+                    String check = bf.readLine();
+                    LOGGER.info("PAROLA: " + check);
+                    if (check.equals("rec")) {
+                        LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
+                        drone.setWantRecharging(true);
+                        asynchronousMedthods.rechargeBattery(drone, drones);
+                        drone.setRecharged(true);
+                        drone.setWantRecharging(false);
+                    }
+                    break;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
     class StopThread extends Thread {
 
         private final Drone drone;
-        private final List<Drone> drones;
+        private final BufferedReader bf;
 
-        public StopThread(Drone drone, List<Drone> drones) {
+        public StopThread(Drone drone, BufferedReader bf) {
             this.drone = drone;
-            this.drones = drones;
+            this.bf = bf;
         }
-
-        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
 
         @Override
         public void run() {
             while (true) {
                 try {
-                    if (bf.readLine().equals("quit")) {
+                    String check = bf.readLine();
+                    LOGGER.info("PAROLA: " + check);
+                    if (check.equals("rec")) {
+                        LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
+                        drone.setWantRecharging(true);
+                        asynchronousMedthods.rechargeBattery(drone, drones);
+                        drone.setRecharged(true);
+                        drone.setWantRecharging(false);
+                    }
+                    else if (check.equals("quit")) {
                         if (!drone.getIsMaster()) {
                             synchronized (inDelivery) {
                                 while (drone.isInDelivery()) {
@@ -299,8 +343,7 @@ public class DroneClient{
                             serverMethods.sendStatistics(drones);
                             break;
                         }
-                    } else if (bf.readLine().equals("recharge"))
-                        asynchronousMedthods.rechargeBattery(drone, drones);
+                    }
                 }catch (MqttException | IOException | InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -416,7 +459,8 @@ public class DroneClient{
     }
 
     public static void main(String[] args) throws MqttException {
-        DroneClient droneClient = new DroneClient();
+        BufferedReader bf = new BufferedReader(new InputStreamReader(System.in));
+        DroneClient droneClient = new DroneClient(bf);
         droneClient.start();
     }
 }

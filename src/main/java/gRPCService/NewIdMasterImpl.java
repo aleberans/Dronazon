@@ -4,6 +4,7 @@ import DronazonPackage.DroneClient;
 import DronazonPackage.Ordine;
 import DronazonPackage.QueueOrdini;
 import REST.beans.Drone;
+import Support.AsynchronousMedthods;
 import Support.MethodSupport;
 import Support.MqttMethods;
 import Support.ServerMethods;
@@ -34,10 +35,12 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private final Object election;
     private final ServerMethods serverMethods;
     private final MethodSupport methodSupport;
+    private final AsynchronousMedthods asynchronousMedthods;
 
 
     public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync, MqttClient client,
-                           Object election, MethodSupport methodSupport, ServerMethods serverMethods){
+                           Object election, MethodSupport methodSupport, ServerMethods serverMethods,
+                           AsynchronousMedthods asynchronousMedthods){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
@@ -45,6 +48,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         this.election = election;
         this.methodSupport = methodSupport;
         this.serverMethods = serverMethods;
+        this.asynchronousMedthods = asynchronousMedthods;
     }
 
     /**
@@ -70,7 +74,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                     MethodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
                     drone.getDroneMaster());*/
 
-            asynchronousSendInfoAggiornateToNewMaster(drone);
+            asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
         }
         else{
             LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
@@ -163,10 +167,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
 
-            //synchronized (drones) {
-                //drones.get(drones.indexOf(methodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
-                methodSupport.takeDroneFromList(droneACuiConsegnare, drones).setConsegnaAssegnata(true);
-            //}
+            methodSupport.takeDroneFromList(droneACuiConsegnare, drones).setConsegnaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
@@ -266,42 +267,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         }
     }
 
-    private void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
-        Context.current().fork().run( () -> {
-            final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
-
-            SendUpdatedInfoToMasterGrpc.SendUpdatedInfoToMasterStub stub = SendUpdatedInfoToMasterGrpc.newStub(channel);
-
-            Info.Posizione newPosizione = Info.Posizione.newBuilder().setX(drone.getPosizionePartenza().x).setY(drone.getPosizionePartenza().y).build();
-
-            Info info = Info.newBuilder().setId(drone.getId()).setPosizione(newPosizione).setBatteria(drone.getBatteria()).build();
-
-            stub.updatedInfo(info, new StreamObserver<ackMessage>() {
-                @Override
-                public void onNext(ackMessage value) {
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    LOGGER.info("Error" + t.getMessage());
-                    LOGGER.info("Error" + t.getCause());
-                    LOGGER.info("Error" + t.getLocalizedMessage());
-                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                }
-
-                @Override
-                public void onCompleted() {
-                    channel.shutdown();
-
-                }
-            });
-            try {
-                channel.awaitTermination(1, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });
-    }
 
     public void forwardNewIdMaster(IdMaster idMaster){
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);

@@ -1,15 +1,21 @@
 package DronazonPackage;
 
 import REST.beans.Drone;
+import Support.MethodSupport;
 import com.example.grpc.Message.*;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class DroneRechargingQueue {
 
-    private final ArrayList<MessageRecharge> codaRicarica;
+    private final List<MessageRecharge> codaRicarica;
+    private final MethodSupport methodSupport;
+    private final List<Drone> drones;
 
-    public DroneRechargingQueue() {
+    public DroneRechargingQueue(MethodSupport methodSupport, List<Drone> drones) {
+        this.methodSupport = methodSupport;
+        this.drones = drones;
         codaRicarica = new ArrayList<>();
     }
 
@@ -18,12 +24,25 @@ public class DroneRechargingQueue {
         notify();
     }
 
-    public synchronized MessageRecharge takeDroneMessageRecharge(Drone drone){
+    public synchronized MessageRecharge takeMessageFromDrone(Drone drone){
         for (MessageRecharge messageRecharge : codaRicarica) {
             if (messageRecharge.getId() == drone.getId())
                 return messageRecharge;
         }
         return null;
+    }
+
+    public synchronized List<Drone> takeDronesFromQueueInDrones(){
+        List<Drone> ids = new ArrayList<>();
+
+        for (MessageRecharge msg : codaRicarica){
+            ids.add(methodSupport.takeDroneFromId(drones, msg.getId()));
+        }
+        return ids;
+    }
+
+    public synchronized void cleanQueue(){
+        codaRicarica.clear();
     }
 
     public synchronized void remove(MessageRecharge messageRecharge){codaRicarica.remove(messageRecharge);

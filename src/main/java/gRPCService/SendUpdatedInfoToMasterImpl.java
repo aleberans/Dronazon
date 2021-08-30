@@ -2,7 +2,6 @@ package gRPCService;
 
 import DronazonPackage.DroneClient;
 import REST.beans.Drone;
-import Support.LogFormatter;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendUpdatedInfoToMasterGrpc;
