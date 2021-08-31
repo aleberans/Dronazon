@@ -10,6 +10,7 @@ import io.grpc.*;
 import io.grpc.stub.StreamObserver;
 import org.eclipse.paho.client.mqttv3.*;
 
+import java.awt.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -111,8 +112,8 @@ public class DroneClient{
             pingeResultThread.start();
 
             //start Thread in attesa di quit
-            StopThread stoporRecharge = new StopThread(drone, bf);
-            stoporRecharge.start();
+            StopAndRechargeThread stopAndRechargeThread = new StopAndRechargeThread(drone, bf);
+            stopAndRechargeThread.start();
 
 
             startSensori(drone);
@@ -271,12 +272,12 @@ public class DroneClient{
         }
     }
 
-    class StopThread extends Thread {
+    class StopAndRechargeThread extends Thread {
 
         private final Drone drone;
         private final BufferedReader bf;
 
-        public StopThread(Drone drone, BufferedReader bf) {
+        public StopAndRechargeThread(Drone drone, BufferedReader bf) {
             this.drone = drone;
             this.bf = bf;
         }
@@ -293,6 +294,7 @@ public class DroneClient{
                         asynchronousMedthods.rechargeBattery(drone, drones);
                         drone.setRecharged(true);
                         drone.setWantRecharging(false);
+                        rechargeProcess();
                     }
                     else if (check.equals("quit")) {
                         if (!drone.getIsMaster()) {
@@ -351,6 +353,52 @@ public class DroneClient{
             LOGGER.info("IL DRONE È USCITO IN MANIERA FORZATA!");
             System.exit(0);
         }
+    }
+
+    public void rechargeProcess(Drone drone, ){
+        synchronized (recharge) {
+            while (!checkRecharge(drones)) {
+                try {
+                    LOGGER.info("VA IN WAIT SU RECHARGE");
+                    recharge.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        methodSupport.takeDroneFromList(drone, drones).setConsegnaAssegnata(true);
+        drone.setInRecharging(true);
+        doRecharge(drone);
+        drone.setInRecharging(false);
+        LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
+        asynchronousMedthods.asynchronousSendOkAfterCompleteRecharge(droneRechargingQueue);
+        LOGGER.info("CODA: " + droneRechargingQueue);
+        droneRechargingQueue.cleanQueue();
+        LOGGER.info("CODA POST: " + droneRechargingQueue);
+    }
+
+    public void doRecharge(Drone drone) {
+
+        LOGGER.info("DRONE IN RICARICA...");
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        LOGGER.info("RICARICA DRONE EFFETTUATA");
+        drone.setPosizionePartenza(new Point(0,0));
+        drone.setBatteria(100);
+        asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
+    }
+
+    public boolean checkRecharge(List<Drone> drones){
+        boolean check = false;
+        for (Drone drone : dronesMap.keySet()){
+            LOGGER.info("DRONE: " + drone.getId());
+            check = drones.contains(drone);
+        }
+        return check;
+    }
     }
 
 
