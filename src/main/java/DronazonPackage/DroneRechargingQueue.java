@@ -45,17 +45,11 @@ public class DroneRechargingQueue {
         codaRicarica.clear();
     }
 
-    public synchronized void remove(MessageRecharge messageRecharge){codaRicarica.remove(messageRecharge);
-    }
-
-    public synchronized MessageRecharge consume() throws InterruptedException {
-        while (codaRicarica.isEmpty())
-            wait();
-
-        return codaRicarica.get(0);
-    }
-
-    public synchronized int size(){
-        return codaRicarica.size();
+    @Override
+    public String toString() {
+        return "DroneRechargingQueue{" +
+                "codaRicarica=" + codaRicarica +
+                ", drones=" + drones +
+                '}';
     }
 }

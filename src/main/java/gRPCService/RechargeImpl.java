@@ -38,40 +38,22 @@ public class RechargeImpl extends RechargeImplBase {
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();
 
-        LOGGER.info("STATO BOOLEAN: \nisInRecharging= " + drone.isInRecharging() + "\n"+
-                "wantRecharge= " + drone.getWantRecharge() + "\n" +
-                "ID: " + drone.getId());
-
         if (drone.getId() != messageRecharge.getId()) {
             if (!drone.isInRecharging() && !drone.getWantRecharge()) {
-                LOGGER.info("ENTRA NEL 1");
                 asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
-                synchronized (recharge) {
-                    recharge.notifyAll();
-                }
             } else if (drone.isInRecharging()) {
-                LOGGER.info("ENTRA NEL 2");
                 droneRechargingQueue.add(messageRecharge);
             } else if (drone.getWantRecharge() && !drone.isRecharged()) {
-                LOGGER.info("ENTRA NEL 3");
                 MessageRecharge messageCurrentDrone = droneRechargingQueue.takeMessageFromDrone(drone);
                 if (messageRecharge.getTimestamp().compareTo(messageCurrentDrone.getTimestamp()) < 0) {
-                    LOGGER.info("ENTRA NEL 4");
                     asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
-                    synchronized (recharge) {
-                        recharge.notifyAll();
-                    }
                 } else {
-                    LOGGER.info("ENTRA NEL 5");
                     droneRechargingQueue.add(messageRecharge);
                 }
             }
         }
         else{
             asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
-            synchronized (recharge) {
-                recharge.notifyAll();
-            }
         }
     }
 }

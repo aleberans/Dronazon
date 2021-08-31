@@ -225,15 +225,16 @@ public class AsynchronousMedthods {
         }
     }
 
-    public void asynchronousSendOkAfterCompleteRecharge(DroneRechargingQueue droneRechargingQueue){
+    public void asynchronousSendOkAfterCompleteRecharge(DroneRechargingQueue droneRechargingQueue, Drone drone){
         List<Drone> droniACuiMandareOk = droneRechargingQueue.takeDronesFromQueueInDrones();
 
         for (Drone d: droniACuiMandareOk){
+            LOGGER.info("DRONI A CUI BISOGNA MANDARE IL MESSAGGIO CON OK: " + d.getId());
             Context.current().fork().run( () -> {
                 final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+d.getPortaAscolto()).usePlaintext().build();
 
                 AnswerRechargeGrpc.AnswerRechargeStub stub = AnswerRechargeGrpc.newStub(channel);
-                Message.Answer answer = Message.Answer.newBuilder().setAnswer("ok").setId(d.getId()).build();
+                Message.Answer answer = Message.Answer.newBuilder().setAnswer("ok").setId(drone.getId()).build();
 
                 stub.okRecharge(answer, new StreamObserver<Message.ackMessage>() {
                     @Override
