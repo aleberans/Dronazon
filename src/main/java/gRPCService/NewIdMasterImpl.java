@@ -119,7 +119,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 try {
                     synchronized (sync){
                         while (!methodSupport.thereIsDroneLibero(drones)) {
-                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n " +
+                                    "STATO RETE: " + drones);
                             sync.wait();
                             LOGGER.info("SVEGLIATO SU SYNC");
                         }
@@ -137,6 +138,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         Ordine ordine = queueOrdini.consume();
 
         Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
+
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -180,32 +182,20 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
                 @Override
                 public void onError(Throwable t) {
-                    try {
-                        LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
-                        channel.shutdownNow();
-                        synchronized (drones) {
-                            drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
-                        }
-                        synchronized (sync){
+                    LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
+                    channel.shutdownNow();
+                    synchronized (drones) {
+                        drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                    }
+                        /*synchronized (sync){
                             while (!methodSupport.thereIsDroneLibero(drones)) {
                                 LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
                                 sync.wait();
                                 LOGGER.info("SVEGLIATO SU SYNC");
                             }
                         }
-                        asynchronousSendConsegna(drones, d);
-                    } catch (InterruptedException e) {
-                        try {
-                            e.printStackTrace();
-                            LOGGER.info("Error" + t.getMessage());
-                            LOGGER.info("Error" + t.getCause());
-                            LOGGER.info("Error" + t.getLocalizedMessage());
-                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                            channel.awaitTermination(1, TimeUnit.SECONDS);
-                        } catch (InterruptedException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-                    }
+                        LOGGER.info("RIPARTE LA CONSEGNA DALLA ONERROR DI ASYNCHRONOUSSENDCONSEGNA");
+                        asynchronousSendConsegna(drones, d);*/
                 }
                 public void onCompleted() {
                     channel.shutdownNow();
@@ -229,15 +219,25 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         //TOLGO IL MASTER SE HA MENO DEL 15% PERCHE DEVE USCIRE
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        //LOGGER.info("DRONI SENZA CONSEGNA: " + stampa(drones));
         //scarto i droni che hanno una posizione nulla. Significa che non sono piu attivi
         synchronized (drones) {
                 droni = droni.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
         }
-        LOGGER.info("LISTA DRONI: " + droni);
+        LOGGER.info("DRONI SENZA CONSEGNA: " + stampaInfo(droni) +
+                "\nVIENE SCELTO: " + droni.stream().filter(d -> !d.consegnaAssegnata())
+                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .orElse(null).getId());
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
+    }
+
+    public String stampaInfo(List<Drone> droni){
+        StringBuilder info = new StringBuilder();
+        for (Drone drone: droni){
+            info.append("\nID: ").append(drone.getId()).append(" ConsegnaAssegnata: ").append(drone.consegnaAssegnata()).append("\n");
+        }
+        return info.toString();
     }
 
     static class SendStatisticToServer extends Thread{

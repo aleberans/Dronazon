@@ -8,15 +8,19 @@ import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc.SendPositionToDroneMasterImplBase {
 
     private final List<Drone> drones;
     private final MethodSupport methodSupport;
+    private final Object sync;
+    private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
 
-    public SendPositionToDroneMasterImpl(List<Drone> drones, MethodSupport methodSupport){
+    public SendPositionToDroneMasterImpl(List<Drone> drones, MethodSupport methodSupport, Object sync){
         this.drones = drones;
         this.methodSupport = methodSupport;
+        this.sync = sync;
     }
 
     @Override
@@ -28,9 +32,16 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
         synchronized (drones) {
             updatePositionDrone(drones, info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
         }
+
+        synchronized (sync){
+            LOGGER.info("RICEVUTE INFORMAZIONI SULLA POSIZIONE DEL DRONE, SVEGLIA SU SYNC");
+            sync.notifyAll();
+        }
     }
 
     public void updatePositionDrone(List<Drone> drones, int id, Point position){
         methodSupport.findDrone(drones, methodSupport.takeDroneFromId(drones, id)).setPosizionePartenza(position);
     }
+
+
 }

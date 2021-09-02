@@ -56,6 +56,8 @@ public class MethodSupport {
 
     public boolean thereIsDroneLibero(List<Drone> droni){
         synchronized(drones) {
+            if (droni.size() == 1 && (droni.get(0).getIsMaster() && droni.get(0).getBatteria() < 20))
+                return false;
             for (Drone d : droni) {
                 if (!d.consegnaAssegnata()) {
                     return true;

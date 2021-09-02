@@ -47,10 +47,10 @@ public class DronePresentationImpl extends DronePresentationImplBase{
             //Riordino la lista dopo aver aggiunto il drone che si è inserito
             drones.sort(Comparator.comparingInt(Drone::getId));
         }
-        synchronized (sync){
+        /*synchronized (sync){
             LOGGER.info("DRONE AGGIUNTO SVEGLIA SU SYNC");
             sync.notifyAll();
-        }
+        }*/
         streamObserver.onNext(message);
         streamObserver.onCompleted();
     }

@@ -79,6 +79,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
         else if(drone.getIsMaster() && drone.getId() != consegna.getIdDrone()){
             LOGGER.info("IL DRONE: "+ consegna.getIdDrone() + " È CADUTO E LO TOLGO");
+            drone.setInForwarding(false);
             synchronized (drones) {
                 drones.remove(methodSupport.takeDroneFromId(drones, consegna.getIdDrone()));
             }
@@ -153,8 +154,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 @Override
                 public void onCompleted() {
                     channel.shutdownNow();
-                    LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO");
                     drone.setInForwarding(false);
+                    synchronized (inForward) {
+                        LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO, SVEGLIA SU INFORWARD");
+                        inForward.notifyAll();
+                    }
                 }
             });
             try {
@@ -178,11 +182,12 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         Point posizioneRitiro = new Point(consegna.getPuntoRitiro().getX(), consegna.getPuntoRitiro().getY());
         Point posizioneConsegna = new Point(consegna.getPuntoConsegna().getX(), consegna.getPuntoConsegna().getY());
 
-        LOGGER.info("CONSEGNA EFFETTUATA");
         drone.setPosizionePartenza(posizioneConsegna);
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         drone.setKmPercorsiSingoloDrone(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
+        methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
+        LOGGER.info("CONSEGNA E AGGIORNAMENTO DATI DRONE EFFETTUATE");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
@@ -224,7 +229,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
                 @Override
                 public void onCompleted() {
-                    LOGGER.info("CONSEGNA E INVIO INFORMAZIONI EFFETTUATE");
+                    LOGGER.info("INVIO INFORMAZIONI AL MASTER EFFETTUATO");
                     drone.setBufferPM10(new ArrayList<>());
                     drone.setInDelivery(false);
                     synchronized (inDelivery) {
@@ -249,16 +254,16 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void checkBatteryDrone(Drone d) throws MqttException, InterruptedException {
         if (d.getBatteria() <= 15) {
             if (!d.getIsMaster()) {
-                //LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
+                LOGGER.info("IL DRONE VUOLE USCIRE E NON È IL MASTER");
                 synchronized (inForward) {
                     while (d.isInForwarding()) {
-                        //LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN FORWARDING");
+                        LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN FORWARDING");
                         inForward.wait();
                     }
                 }
                 synchronized (inDelivery) {
                     while (d.isInDelivery()) {
-                        //LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY");
+                        LOGGER.info("IL DRONE VUOLE USCIRE PER LA BATTERIA MA È IN DELIVERY");
                         inDelivery.wait();
                     }
                 }
@@ -266,7 +271,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 LOGGER.info("IL DRONE È USCITO PER LA BETTERIA INFERIORE DEL 15%");
                 System.exit(0);
             } else {
-                //LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
+                LOGGER.info("IL DRONE NON HA PIÙ BATTERIA, GESTISCO TUTTO PRIMA DI CHIUDERLO");
                 quitDroneMaster();
                 LOGGER.info("IL DRONE MASTER È USCITO PER LA BATTERIA INFERIORE DEL 15%");
                 System.exit(0);
@@ -277,10 +282,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void quitDroneMaster() throws InterruptedException, MqttException {
         if (client.isConnected())
             client.disconnect();
-        //LOGGER.info("MASTER DISCONNESSO DAL BROKER");
+        LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (sync){
-            while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)){
+            while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero(drones)){
                 LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
                         + queueOrdini.size() + "\n"
                 + "STATO DELLA LISTA: " + drones);
@@ -289,11 +294,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         }
 
         LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
-        methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
 
         synchronized (inForward) {
             while (drone.isInForwarding()) {
-                LOGGER.info("IL MASTER È IN FORWARDING, WAIT...");
+                LOGGER.info("IL MASTER È IN FORWARDING, WAIT SU INFORWARD... \n" +
+                        "STATO MASTER: " + drone.toString());
                 inForward.wait();
             }
         }

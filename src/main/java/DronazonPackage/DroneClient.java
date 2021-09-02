@@ -73,7 +73,7 @@ public class DroneClient {
 
             int portaAscolto = rnd.nextInt(1000) + 8080;
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
-            LOGGER.info("ID DRONE: " + drone.getId());
+
             drones.addAll(serverMethods.addDroneServer(drone));
 
             methodSupport.updatePositionPartenzaDrone(drones, drone);
@@ -109,7 +109,7 @@ public class DroneClient {
             }
 
             PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
-            //pingeResultThread.start();
+            pingeResultThread.start();
 
             //start Thread in attesa di quit
             StopAndRechargeThread stopAndRechargeThread = new StopAndRechargeThread(drone, bf);
@@ -129,7 +129,7 @@ public class DroneClient {
         Server server = ServerBuilder.forPort(portaAscolto)
                 .addService(new DronePresentationImpl(drones, sync, election, methodSupport))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
-                .addService(new SendPositionToDroneMasterImpl(drones, methodSupport))
+                .addService(new SendPositionToDroneMasterImpl(drones, methodSupport, sync))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery,
                         inForward, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
@@ -332,8 +332,10 @@ public class DroneClient {
                                     sync.wait();
                                 }
                             }
-                            LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
-                            methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
+
+                            //LOGGER.info("TUTTI GLI ORDINI SONO STATI CONSUMATI");
+                            //methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
+
                             synchronized (sync) {
                                 while (!methodSupport.allDroniLiberi(drones)) {
                                     LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE");
@@ -415,11 +417,22 @@ public class DroneClient {
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        LOGGER.info("DRONI DISPONIBILI: " + droni);
+        LOGGER.info("DRONI DISPONIBILI A EFFETUARE CONSEGNE: " + stampaInfo(droni) +
+                "\nVIENE SCELTO: " + droni.stream().filter(d -> !d.consegnaAssegnata())
+                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .orElse(null).getId());
 
         return droni.stream().filter(d -> !d.consegnaAssegnata())
                     .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                     .orElse(null);
+    }
+
+    public String stampaInfo(List<Drone> droni){
+        StringBuilder info = new StringBuilder();
+        for (Drone drone: droni){
+            info.append("\nID: ").append(drone.getId()).append(" ConsegnaAssegnata: ").append(drone.consegnaAssegnata()).append("\n");
+        }
+        return info.toString();
     }
 
     public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
@@ -456,10 +469,9 @@ public class DroneClient {
                     .setIdDrone(droneACuiConsegnare.getId())
                     .build();
 
-            synchronized (drones) {
-                //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-                drones.get(drones.indexOf(methodSupport.findDrone(drones, droneACuiConsegnare))).setConsegnaAssegnata(true);
-            }
+            //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
+            methodSupport.takeDroneFromList(droneACuiConsegnare, drones).setConsegnaAssegnata(true);
+
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
 
@@ -470,35 +482,23 @@ public class DroneClient {
 
                 @Override
                 public void onError(Throwable t) {
-                    try {
-                        LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
-                        channel.shutdownNow();
-                        synchronized (drones) {
-                            drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
-                        }
-                        synchronized (sync){
+                    LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
+                    channel.shutdownNow();
+                    synchronized (drones) {
+                        drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                    }
+
+                        /*synchronized (sync){
                             while (!methodSupport.thereIsDroneLibero(drones)) {
-                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
+                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI NELLA ONERROR");
                                 sync.wait();
                                 LOGGER.info("SVEGLIATO SU SYNC");
                             }
                         }
-                        asynchronousSendConsegna(drones, d);
-                    } catch (InterruptedException e) {
-                        try {
-                            e.printStackTrace();
-                            LOGGER.info("Error" + t.getMessage());
-                            LOGGER.info("Error" + t.getCause());
-                            LOGGER.info("Error" + t.getLocalizedMessage());
-                            LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                            channel.awaitTermination(1, TimeUnit.SECONDS);
-                        } catch (InterruptedException interruptedException) {
-                            interruptedException.printStackTrace();
-                        }
-                    }
+
+                        asynchronousSendConsegna(drones, d);*/
                 }
                 public void onCompleted() {
-                    LOGGER.info("CONSEGNA MANDATA NELL'ANELLO");
                     channel.shutdown();
                 }
             });
