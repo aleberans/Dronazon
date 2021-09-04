@@ -288,13 +288,16 @@ public class DroneClient {
                 try {
                     String check = bf.readLine();
                     if (check.equals("rec")) {
-                        LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
-                        Thread.sleep(5000);
-                        drone.setWantRecharging(true);
-                        asynchronousMedthods.rechargeBattery(drone, drones);
-                        drone.setRecharged(true);
-                        drone.setWantRecharging(false);
-                        rechargeProcess(drone);
+                        if (drone.getBatteria() < 20)
+                            LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
+                        else {
+                            LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
+                            drone.setWantRecharging(true);
+                            asynchronousMedthods.rechargeBattery(drone, drones);
+                            drone.setRecharged(true);
+                            drone.setWantRecharging(false);
+                            rechargeProcess(drone);
+                        }
                     } else if (check.equals("quit")) {
                         if (!drone.getIsMaster()) {
                             synchronized (inDelivery) {
