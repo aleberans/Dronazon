@@ -132,4 +132,13 @@ service AnswerRecharge{
   rpc okRecharge(Answer) returns (ackMessage);
 }
 
+service SendInRecharging{
+  rpc inRecharging(Recharging) returns (ackMessage);
+}
+
+message Recharging{
+  required int32 id=1;
+  required bool recharging=2;
+}
+
 

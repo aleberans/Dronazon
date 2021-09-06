@@ -42,10 +42,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private final ServerMethods serverMethods;
     private final MethodSupport methodSupport;
     private final AsynchronousMedthods asynchronousMedthods;
+    private final Object ricarica;
 
     public SendConsegnaToDroneImpl(List<Drone> drones, Drone drone, QueueOrdini queueOrdini,
                                    MqttClient client, Object sync, Object inDelivery, Object inForward,
-                                   MethodSupport methodSupport, ServerMethods serverMethods, AsynchronousMedthods asynchronousMedthods){
+                                   MethodSupport methodSupport, ServerMethods serverMethods, AsynchronousMedthods asynchronousMedthods, Object ricarica){
         this.drones = drones;
         this.drone = drone;
         this.queueOrdini = queueOrdini;
@@ -56,6 +57,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         this.serverMethods = serverMethods;
         this.methodSupport = methodSupport;
         this.asynchronousMedthods = asynchronousMedthods;
+        this.ricarica = ricarica;
         LOGGER.setUseParentHandlers(false);
         ConsoleHandler handler = new ConsoleHandler();
         LogFormatter formatter = new LogFormatter();
@@ -80,6 +82,10 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         else if(drone.getIsMaster() && drone.getId() != consegna.getIdDrone()){
             LOGGER.info("IL DRONE: "+ consegna.getIdDrone() + " È CADUTO E LO TOLGO");
             drone.setInForwarding(false);
+            synchronized (ricarica){
+                LOGGER.info("DRONE NON PIÙ IN FORWARDING, SVEGLIATO SU RICARICA");
+                ricarica.notify();
+            }
             synchronized (drones) {
                 drones.remove(methodSupport.takeDroneFromId(drones, consegna.getIdDrone()));
             }
@@ -135,7 +141,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             }
                         }
                         forwardConsegna(consegna);
-
                     } catch (InterruptedException e) {
                         try {
                             channel.awaitTermination(1, TimeUnit.SECONDS);
@@ -187,6 +192,11 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drone.setCountConsegne(drone.getCountConsegne()+1);
         drone.setKmPercorsiSingoloDrone(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
         methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
+        drone.setConsegnaAssegnata(false);
+        synchronized (ricarica){
+            LOGGER.info("DRONE NON HA PIÙ CONSEGNE ASSEGNATE, SVEGLIATO SU RICARICA");
+            ricarica.notify();
+        }
         LOGGER.info("CONSEGNA E AGGIORNAMENTO DATI DRONE EFFETTUATE");
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
@@ -234,6 +244,9 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     drone.setInDelivery(false);
                     synchronized (inDelivery) {
                         inDelivery.notify();
+                    }
+                    synchronized (ricarica){
+                        ricarica.notify();
                     }
                     try {
                         checkBatteryDrone(drone);
@@ -314,7 +327,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 sync.wait();
             }
         }
-
         serverMethods.sendStatistics(drones);
         serverMethods.removeDroneServer(drone);
     }

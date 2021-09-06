@@ -34,7 +34,7 @@ public class AnswerRechargeImpl extends AnswerRechargeGrpc.AnswerRechargeImplBas
 
         dronesMap.put(methodSupport.takeDroneFromId(drones, answer.getId()), answer.getAnswer());
         LOGGER.info("ID DRONE AGGIUNTO NELLA MAPPA: " + methodSupport.takeDroneFromId(drones, answer.getId()).getId() +
-                "\nSTATO MAPPA: " + dronesMap.keySet().toString());
+                "\nSTATO MAPPA: " + dronesMap.keySet());
         synchronized (recharge) {
             if (dronesMap.size() == drones.size()){
                 recharge.notifyAll();

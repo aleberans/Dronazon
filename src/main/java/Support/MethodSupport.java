@@ -21,7 +21,7 @@ public class MethodSupport {
         synchronized (drones) {
             StringBuilder id = new StringBuilder();
             for (Drone d : droni) {
-                id.append(d.getId()).append(", ");
+                id.append(d.getId()).append(", ").append("ricarica: ").append(d.isInRecharging()).append(" ");
             }
             return id.toString();
         }
@@ -108,4 +108,5 @@ public class MethodSupport {
             return true;
         }
     }
+
 }

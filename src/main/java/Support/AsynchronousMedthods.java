@@ -10,7 +10,6 @@ import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -64,6 +63,7 @@ public class AsynchronousMedthods {
             }
         });
     }
+
     public void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
 
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
@@ -370,6 +370,76 @@ public class AsynchronousMedthods {
                     channel.shutdown();
                 }
 
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public void asynchronousSetDroneInRechargingTrue(Drone drone, Drone master) {
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+master.getPortaAscolto()).usePlaintext().build();
+
+            SendInRechargingGrpc.SendInRechargingStub stub = SendInRechargingGrpc.newStub(channel);
+            Message.Recharging info = Message.Recharging.newBuilder().setId(drone.getId()).setRecharging(true).build();
+
+            stub.inRecharging(info, new StreamObserver<Message.ackMessage>() {
+                @Override
+                public void onNext(Message.ackMessage ackMessage) {
+
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    t.printStackTrace();
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
+            });
+            try {
+                channel.awaitTermination(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public void asynchronousSetDroneInRechargingFalse(Drone drone, Drone master) {
+        Context.current().fork().run( () -> {
+            final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+master.getPortaAscolto()).usePlaintext().build();
+
+            SendInRechargingGrpc.SendInRechargingStub stub = SendInRechargingGrpc.newStub(channel);
+            Message.Recharging info = Message.Recharging.newBuilder().setId(drone.getId()).setRecharging(false).build();
+
+            stub.inRecharging(info, new StreamObserver<Message.ackMessage>() {
+                @Override
+                public void onNext(Message.ackMessage ackMessage) {
+
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    LOGGER.info("Error" + t.getMessage());
+                    LOGGER.info("Error" + t.getCause());
+                    LOGGER.info("Error" + t.getLocalizedMessage());
+                    LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    t.printStackTrace();
+                }
+
+                @Override
+                public void onCompleted() {
+                    channel.shutdown();
+                }
             });
             try {
                 channel.awaitTermination(10, TimeUnit.SECONDS);

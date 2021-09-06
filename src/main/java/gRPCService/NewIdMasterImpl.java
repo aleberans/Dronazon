@@ -267,7 +267,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         }
     }
 
-
     public void forwardNewIdMaster(IdMaster idMaster){
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {

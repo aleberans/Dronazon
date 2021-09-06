@@ -39,6 +39,7 @@ public class DroneClient {
     private final Object recharge;
     private final BufferedReader bf;
     private final HashMap<Drone, String> dronesMap;
+    private final Object ricarica;
 
     public DroneClient(BufferedReader bf) throws MqttException {
         this.bf = bf;
@@ -53,6 +54,7 @@ public class DroneClient {
         client = new MqttClient(broker, clientId);
         inDelivery = new Object();
         inForward = new Object();
+        ricarica = new Object();
         drones = new ArrayList<>();
         election = new Object();
         methodSupport = new MethodSupport(drones);
@@ -131,7 +133,7 @@ public class DroneClient {
                 .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones, methodSupport, sync))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery,
-                        inForward, methodSupport, serverMethods, asynchronousMedthods))
+                        inForward, methodSupport, serverMethods, asynchronousMedthods, ricarica))
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, methodSupport))
@@ -139,7 +141,7 @@ public class DroneClient {
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
                 .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, recharge))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
-                .build();
+                .addService(new SendInRechargingImpl(drones, methodSupport)).build();
         server.start();
     }
 
@@ -202,6 +204,7 @@ public class DroneClient {
                             LOGGER.info("SVEGLIATO SU SYNC");
                         }
                     }
+
                     asynchronousSendConsegna(drones, drone);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -225,47 +228,16 @@ public class DroneClient {
             while (true) {
                 try {
                     asynchronousMedthods.asynchronousPingAlive(drone, drones);
-                    LOGGER.info("\nID DEL DRONE: " + drone.getId() + "\n"
-                            + "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n"
-                            + "POSIZIONE ATTUALE: " + drone.getPosizionePartenza() + "\n"
-                            + "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() + "\n"
-                            + "TOTALE KM PERCORSI: " + drone.getKmPercorsiSingoloDrone() + "\n"
-                            + "P10 RILEVATO: " + drone.getBufferPM10() + "\n"
-                            + "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n"
-                            + "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni(drones) + "\n");
+                    LOGGER.info("\nID DEL DRONE: " + drone.getId() + "\n" +
+                             "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n" +
+                             "POSIZIONE ATTUALE: " + drone.getPosizionePartenza() + "\n" +
+                             "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() + "\n" +
+                             "TOTALE KM PERCORSI: " + drone.getKmPercorsiSingoloDrone() + "\n" +
+                             "P10 RILEVATO: " + drone.getBufferPM10() + "\n" +
+                             "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n" +
+                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni(drones) + "\n");
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-
-    class RechargeThread extends Thread {
-
-        private final Drone drone;
-        private final BufferedReader bf;
-
-        public RechargeThread(Drone drone, BufferedReader bf) {
-            this.drone = drone;
-            this.bf = bf;
-        }
-
-        @Override
-        public void run() {
-            while (true) {
-                try {
-                    String check = bf.readLine();
-                    LOGGER.info("PAROLA: " + check);
-                    if (check.equals("rec")) {
-                        LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
-                        drone.setWantRecharging(true);
-                        asynchronousMedthods.rechargeBattery(drone, drones);
-                        drone.setRecharged(true);
-                        drone.setWantRecharging(false);
-                    }
-                    break;
-                } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
@@ -291,12 +263,20 @@ public class DroneClient {
                         if (drone.getBatteria() < 20)
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
                         else {
+                            synchronized (ricarica) {
+                                while (drone.consegnaAssegnata() || drone.isInDelivery() || drone.isInForwarding()) {
+                                    LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA O FORWARDING");
+                                    ricarica.wait();
+                                }
+                            }
                             LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
                             drone.setWantRecharging(true);
+                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             asynchronousMedthods.rechargeBattery(drone, drones);
+
+                            rechargeProcess(drone);
                             drone.setRecharged(true);
                             drone.setWantRecharging(false);
-                            rechargeProcess(drone);
                         }
                     } else if (check.equals("quit")) {
                         if (!drone.getIsMaster()) {
@@ -363,25 +343,24 @@ public class DroneClient {
         if (checkRecharge(drones)) {
             methodSupport.takeDroneFromList(drone, drones).setConsegnaAssegnata(true);
             drone.setInRecharging(true);
-            doRecharge(drone);
+
+            LOGGER.info("DRONE IN RICARICA...");
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            LOGGER.info("RICARICA DRONE EFFETTUATA");
+            drone.setPosizionePartenza(new Point(0, 0));
+            drone.setBatteria(100);
+            asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
+
             drone.setInRecharging(false);
             LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
             asynchronousMedthods.asynchronousSendOkAfterCompleteRecharge(droneRechargingQueue, drone);
             droneRechargingQueue.cleanQueue();
+            asynchronousMedthods.asynchronousSetDroneInRechargingFalse(drone, drone.getDroneMaster());
         }
-    }
-
-    public void doRecharge(Drone drone) {
-        LOGGER.info("DRONE IN RICARICA...");
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        LOGGER.info("RICARICA DRONE EFFETTUATA");
-        drone.setPosizionePartenza(new Point(0, 0));
-        drone.setBatteria(100);
-        asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
     }
 
     public boolean checkRecharge(List<Drone> drones) {
@@ -408,8 +387,6 @@ public class DroneClient {
         }
         return check;
     }
-
-
 
     public Drone cercaDroneCheConsegna(List<Drone> drones, Ordine ordine) throws InterruptedException {
         List<Drone> droni = new ArrayList<>(drones);
