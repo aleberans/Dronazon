@@ -154,6 +154,9 @@ public class Drone implements Comparable<Drone>{
                 ", countConsegne=" + countConsegne +
                 ", isInDelivery=" + isInDelivery +
                 ", isInForwarding=" + isInForwarding +
+                ", isInRecharging= " + isInRecharging +
+                ", wantRecharge=" + wantRecharge +
+                ", recharged=" + recharged +
                 '}';
     }
 

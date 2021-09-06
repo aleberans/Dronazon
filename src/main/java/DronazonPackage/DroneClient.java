@@ -40,7 +40,6 @@ public class DroneClient {
     private final BufferedReader bf;
     private final HashMap<Drone, String> dronesMap;
     private final Object ricarica;
-    private final Object recharging;
 
     public DroneClient(BufferedReader bf) throws MqttException {
         this.bf = bf;
@@ -50,7 +49,6 @@ public class DroneClient {
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
         sync = new Object();
-        recharging = new Object();
         String broker = "tcp://localhost:1883";
         String clientId = MqttClient.generateClientId();
         client = new MqttClient(broker, clientId);
@@ -139,11 +137,11 @@ public class DroneClient {
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, methodSupport))
-                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods, recharging))
+                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
                 .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, recharge))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
-                .addService(new SendInRechargingImpl(drones, methodSupport)).build();
+                .addService(new SendInRechargingImpl(drones, methodSupport, recharge, sync)).build();
         server.start();
     }
 
@@ -199,18 +197,23 @@ public class DroneClient {
         public void run() {
             while (true) {
                 try {
-                    synchronized (sync) {
-                        while (!methodSupport.thereIsDroneLibero(drones)) {
-                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                            sync.wait();
-                            LOGGER.info("SVEGLIATO SU SYNC");
-                        }
+                    /*for (Drone d: drones){
+                        if (d.isInRecharging())
+                            methodSupport.takeDroneFromList(d, drones).setConsegnaAssegnata(true);
                     }
                     if (drones.size() == 1) {
                         synchronized (recharging) {
                             while (drones.get(0).isInRecharging()){
+                                LOGGER.info("VA IN WAIT PERCHE' IL DRONE E' SOLO ED E' IN RICARICA");
                                 recharging.wait();
                             }
+                        }
+                    }*/
+                    synchronized (sync) {
+                        while (!methodSupport.thereIsDroneLibero(drones)) {
+                            LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI: \n" + drones);
+                            sync.wait();
+                            LOGGER.info("SVEGLIATO SU SYNC");
                         }
                     }
                     asynchronousSendConsegna(drones, drone);
@@ -271,6 +274,8 @@ public class DroneClient {
                         if (drone.getBatteria() < 20)
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
                         else {
+                            drone.setWantRecharging(true);
+                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             synchronized (ricarica) {
                                 while (drone.consegnaAssegnata() || drone.isInDelivery() || drone.isInForwarding()) {
                                     LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA O FORWARDING");
@@ -278,8 +283,6 @@ public class DroneClient {
                                 }
                             }
                             LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
-                            drone.setWantRecharging(true);
-                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             asynchronousMedthods.rechargeBattery(drone, drones);
 
                             rechargeProcess(drone);
@@ -317,7 +320,7 @@ public class DroneClient {
                                 }
                             }
                             synchronized (sync) {
-                                while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)) {
+                                while (queueOrdini.size() > 0 || methodSupport.thereIsDroneLibero(drones)) {
                                     LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
                                             + queueOrdini.size() + "\n" + "lista: " + drones);
                                     sync.wait();
@@ -349,12 +352,12 @@ public class DroneClient {
 
     public void rechargeProcess(Drone drone) {
         if (checkRecharge(drones)) {
-            methodSupport.takeDroneFromList(drone, drones).setConsegnaAssegnata(true);
+            drone.setConsegnaAssegnata(true);
             drone.setInRecharging(true);
 
             LOGGER.info("DRONE IN RICARICA...");
             try {
-                Thread.sleep(10000);
+                Thread.sleep(15000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -404,6 +407,8 @@ public class DroneClient {
         droni.sort(Collections.reverseOrder());
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
+
+        LOGGER.info("SITUZIONE RETE: " + droni);
 
         LOGGER.info("DRONI DISPONIBILI A EFFETUARE CONSEGNE: " + stampaInfo(droni) +
                 "\nVIENE SCELTO: " + droni.stream()

@@ -298,7 +298,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (sync){
-            while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero(drones)){
+            while (queueOrdini.size() > 0 && methodSupport.thereIsDroneLibero(drones)){
                 LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
                         + queueOrdini.size() + "\n"
                 + "STATO DELLA LISTA: " + drones);

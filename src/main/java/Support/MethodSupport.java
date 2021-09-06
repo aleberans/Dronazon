@@ -1,9 +1,6 @@
 package Support;
 
 import REST.beans.Drone;
-import io.grpc.Context;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 
 import java.awt.*;
 import java.util.List;
@@ -59,7 +56,7 @@ public class MethodSupport {
             if (droni.size() == 1 && (droni.get(0).getIsMaster() && droni.get(0).getBatteria() < 20))
                 return false;
             for (Drone d : droni) {
-                if (!d.consegnaAssegnata()) {
+                if (!d.consegnaAssegnata() && !d.isInRecharging()) {
                     return true;
                 }
             }

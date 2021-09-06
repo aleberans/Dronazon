@@ -48,9 +48,11 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
             if ( !(drone.getIsMaster() && drone.getBatteria() <= 20))
                 methodSupport.getDroneFromList(sendStat.getIdDrone(), drones).setConsegnaAssegnata(false);
 
-            synchronized (sync) {
-                LOGGER.info("SVEGLIA SYNC DOPO RICEZIONE INFO DAL DRONE: " + sendStat.getIdDrone() + " AL MASTER");
-                sync.notifyAll();
+            if (!drone.getWantRecharge()) {
+                synchronized (sync) {
+                    LOGGER.info("SVEGLIA SYNC DOPO RICEZIONE INFO DAL DRONE: " + sendStat.getIdDrone() + " AL MASTER");
+                    sync.notifyAll();
+                }
             }
         }
     }

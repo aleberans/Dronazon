@@ -35,12 +35,11 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private final ServerMethods serverMethods;
     private final MethodSupport methodSupport;
     private final AsynchronousMedthods asynchronousMedthods;
-    private final Object recharging;
 
 
     public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync, MqttClient client,
                            Object election, MethodSupport methodSupport, ServerMethods serverMethods,
-                           AsynchronousMedthods asynchronousMedthods, Object recharging){
+                           AsynchronousMedthods asynchronousMedthods){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
@@ -49,7 +48,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         this.methodSupport = methodSupport;
         this.serverMethods = serverMethods;
         this.asynchronousMedthods = asynchronousMedthods;
-        this.recharging = recharging;
     }
 
     /**
@@ -119,18 +117,11 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             while (true) {
                 try {
                     synchronized (sync){
-                        while (!methodSupport.thereIsDroneLibero(drones)) {
+                        while (methodSupport.thereIsDroneLibero(drones)) {
                             LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n " +
                                     "STATO RETE: " + drones);
                             sync.wait();
                             LOGGER.info("SVEGLIATO SU SYNC");
-                        }
-                    }
-                    if (drones.size() == 1) {
-                        synchronized (recharging) {
-                            while (drones.get(0).isInRecharging()){
-                                recharging.wait();
-                            }
                         }
                     }
                     asynchronousSendConsegna(drones, drone);

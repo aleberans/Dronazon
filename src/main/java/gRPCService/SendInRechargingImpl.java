@@ -15,11 +15,15 @@ public class SendInRechargingImpl extends SendInRechargingImplBase {
     private final List<Drone> droni;
     private final MethodSupport methodSupport;
     private final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+    private final Object recharge;
+    private final Object sync;
 
-    public SendInRechargingImpl(List<Drone> droni, MethodSupport methodSupport){
+    public SendInRechargingImpl(List<Drone> droni, MethodSupport methodSupport, Object recharge, Object sync){
 
         this.droni = droni;
         this.methodSupport = methodSupport;
+        this.recharge = recharge;
+        this.sync = sync;
     }
 
     @Override
@@ -35,6 +39,12 @@ public class SendInRechargingImpl extends SendInRechargingImplBase {
         else {
             methodSupport.takeDroneFromId(droni, recharging.getId()).setInRecharging(false);
             LOGGER.info("DRONE: " + recharging.getId() + " IMPOSTATO NON IN RICARICA");
+            synchronized (recharge){
+                recharge.notify();
+            }
+            synchronized (sync){
+                sync.notify();
+            }
 
         }
     }
