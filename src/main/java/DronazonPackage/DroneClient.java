@@ -183,6 +183,15 @@ public class DroneClient {
         }
     }
 
+    public String stampaInfoWithRecharging(List<Drone> droni){
+        StringBuilder info = new StringBuilder();
+        for (Drone drone: droni){
+            info.append("\nID: ").append(drone.getId()).append(" ConsegnaAssegnata: ").append(drone.consegnaAssegnata())
+                    .append(" inRecharging: ").append(drone.isInRecharging()).append("\n");
+        }
+        return info.toString();
+    }
+
     class SendConsegnaThread extends Thread {
 
         private final List<Drone> drones;
@@ -197,18 +206,7 @@ public class DroneClient {
         public void run() {
             while (true) {
                 try {
-                    /*for (Drone d: drones){
-                        if (d.isInRecharging())
-                            methodSupport.takeDroneFromList(d, drones).setConsegnaAssegnata(true);
-                    }
-                    if (drones.size() == 1) {
-                        synchronized (recharging) {
-                            while (drones.get(0).isInRecharging()){
-                                LOGGER.info("VA IN WAIT PERCHE' IL DRONE E' SOLO ED E' IN RICARICA");
-                                recharging.wait();
-                            }
-                        }
-                    }*/
+                    LOGGER.info("RETE PRIMA DEL CONTROLLO SU WHILE: " + stampaInfoWithRecharging(drones));
                     synchronized (sync) {
                         while (!methodSupport.thereIsDroneLibero(drones)) {
                             LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI: \n" + drones);
@@ -275,13 +273,13 @@ public class DroneClient {
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
                         else {
                             drone.setWantRecharging(true);
-                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             synchronized (ricarica) {
-                                while (drone.consegnaAssegnata() || drone.isInDelivery() || drone.isInForwarding()) {
-                                    LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA O FORWARDING");
+                                while (drone.consegnaAssegnata() || drone.isInDelivery()) {
+                                    LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA");
                                     ricarica.wait();
                                 }
                             }
+                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
                             asynchronousMedthods.rechargeBattery(drone, drones);
 
@@ -408,7 +406,7 @@ public class DroneClient {
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        LOGGER.info("SITUZIONE RETE: " + droni);
+        LOGGER.info("SITUAZIONE RETE: " + droni);
 
         LOGGER.info("DRONI DISPONIBILI A EFFETUARE CONSEGNE: " + stampaInfo(droni) +
                 "\nVIENE SCELTO: " + droni.stream()
