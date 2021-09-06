@@ -40,6 +40,7 @@ public class DroneClient {
     private final BufferedReader bf;
     private final HashMap<Drone, String> dronesMap;
     private final Object ricarica;
+    private final Object recharging;
 
     public DroneClient(BufferedReader bf) throws MqttException {
         this.bf = bf;
@@ -49,6 +50,7 @@ public class DroneClient {
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
         sync = new Object();
+        recharging = new Object();
         String broker = "tcp://localhost:1883";
         String clientId = MqttClient.generateClientId();
         client = new MqttClient(broker, clientId);
@@ -137,7 +139,7 @@ public class DroneClient {
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
                 .addService(new PingAliveImpl())
                 .addService(new ElectionImpl(drone, drones, methodSupport))
-                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
+                .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods, recharging))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
                 .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, recharge))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
@@ -204,7 +206,13 @@ public class DroneClient {
                             LOGGER.info("SVEGLIATO SU SYNC");
                         }
                     }
-
+                    if (drones.size() == 1) {
+                        synchronized (recharging) {
+                            while (drones.get(0).isInRecharging()){
+                                recharging.wait();
+                            }
+                        }
+                    }
                     asynchronousSendConsegna(drones, drone);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -398,13 +406,17 @@ public class DroneClient {
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
         LOGGER.info("DRONI DISPONIBILI A EFFETUARE CONSEGNE: " + stampaInfo(droni) +
-                "\nVIENE SCELTO: " + droni.stream().filter(d -> !d.consegnaAssegnata())
-                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                .orElse(null).getId());
+                "\nVIENE SCELTO: " + droni.stream()
+                        .filter(d -> !d.isInRecharging())
+                        .filter(d -> !d.consegnaAssegnata())
+                        .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                        .orElse(null).getId());
 
-        return droni.stream().filter(d -> !d.consegnaAssegnata())
-                    .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                    .orElse(null);
+        return droni.stream()
+                .filter(d -> !d.isInRecharging())
+                .filter(d -> !d.consegnaAssegnata())
+                .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
+                .orElse(null);
     }
 
     public String stampaInfo(List<Drone> droni){

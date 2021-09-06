@@ -12,7 +12,6 @@ import com.example.grpc.Message;
 import com.example.grpc.Message.*;
 import com.example.grpc.NewIdMasterGrpc;
 import com.example.grpc.SendConsegnaToDroneGrpc;
-import com.example.grpc.SendUpdatedInfoToMasterGrpc;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -36,11 +35,12 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     private final ServerMethods serverMethods;
     private final MethodSupport methodSupport;
     private final AsynchronousMedthods asynchronousMedthods;
+    private final Object recharging;
 
 
     public NewIdMasterImpl(List<Drone> drones, Drone drone, Object sync, MqttClient client,
                            Object election, MethodSupport methodSupport, ServerMethods serverMethods,
-                           AsynchronousMedthods asynchronousMedthods){
+                           AsynchronousMedthods asynchronousMedthods, Object recharging){
         this.drone = drone;
         this.drones = drones;
         this.sync = sync;
@@ -49,6 +49,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         this.methodSupport = methodSupport;
         this.serverMethods = serverMethods;
         this.asynchronousMedthods = asynchronousMedthods;
+        this.recharging = recharging;
     }
 
     /**
@@ -123,6 +124,13 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                                     "STATO RETE: " + drones);
                             sync.wait();
                             LOGGER.info("SVEGLIATO SU SYNC");
+                        }
+                    }
+                    if (drones.size() == 1) {
+                        synchronized (recharging) {
+                            while (drones.get(0).isInRecharging()){
+                                recharging.wait();
+                            }
                         }
                     }
                     asynchronousSendConsegna(drones, drone);
@@ -224,10 +232,14 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 droni = droni.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
         }
         LOGGER.info("DRONI SENZA CONSEGNA: " + stampaInfo(droni) +
-                "\nVIENE SCELTO: " + droni.stream().filter(d -> !d.consegnaAssegnata())
+                "\nVIENE SCELTO: " + droni.stream()
+                .filter(d -> !d.isInRecharging())
+                .filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null).getId());
-        return droni.stream().filter(d -> !d.consegnaAssegnata())
+        return droni.stream()
+                .filter(d -> !d.isInRecharging())
+                .filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
     }
