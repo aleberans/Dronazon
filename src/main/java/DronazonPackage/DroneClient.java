@@ -40,11 +40,13 @@ public class DroneClient {
     private final BufferedReader bf;
     private final HashMap<Drone, String> dronesMap;
     private final Object ricarica;
+    private final Object rec;
 
     public DroneClient(BufferedReader bf) throws MqttException {
         this.bf = bf;
         this.dronesMap = new HashMap<>();
         rnd = new Random();
+        rec = new Object();
         LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
@@ -206,12 +208,12 @@ public class DroneClient {
         public void run() {
             while (true) {
                 try {
-                    LOGGER.info("RETE PRIMA DEL CONTROLLO SU WHILE: " + stampaInfoWithRecharging(drones));
                     synchronized (sync) {
-                        while (!methodSupport.thereIsDroneLibero(drones)) {
+                        LOGGER.info("CHECK DRONI LIBERI: " + methodSupport.takeFreeDrone(drones));
+                        while (methodSupport.takeFreeDrone(drones).size() == 0) {
                             LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI: \n" + drones);
                             sync.wait();
-                            LOGGER.info("SVEGLIATO SU SYNC");
+                            LOGGER.info("SVEGLIATO SU SYNC: HH" + stampaInfoWithRecharging(drones));
                         }
                     }
                     asynchronousSendConsegna(drones, drone);
@@ -273,13 +275,14 @@ public class DroneClient {
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
                         else {
                             drone.setWantRecharging(true);
+                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
+
                             synchronized (ricarica) {
                                 while (drone.consegnaAssegnata() || drone.isInDelivery()) {
                                     LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA");
                                     ricarica.wait();
                                 }
                             }
-                            asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());
                             LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
                             asynchronousMedthods.rechargeBattery(drone, drones);
 
@@ -365,6 +368,10 @@ public class DroneClient {
             asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
 
             drone.setInRecharging(false);
+            synchronized (sync){
+                LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
+                sync.notify();
+            }
             LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
             asynchronousMedthods.asynchronousSendOkAfterCompleteRecharge(droneRechargingQueue, drone);
             droneRechargingQueue.cleanQueue();
@@ -408,13 +415,6 @@ public class DroneClient {
 
         LOGGER.info("SITUAZIONE RETE: " + droni);
 
-        LOGGER.info("DRONI DISPONIBILI A EFFETUARE CONSEGNE: " + stampaInfo(droni) +
-                "\nVIENE SCELTO: " + droni.stream()
-                        .filter(d -> !d.isInRecharging())
-                        .filter(d -> !d.consegnaAssegnata())
-                        .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                        .orElse(null).getId());
-
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
                 .filter(d -> !d.consegnaAssegnata())
@@ -453,6 +453,14 @@ public class DroneClient {
             Drone droneACuiConsegnare = null;
             try {
                 droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
+                synchronized (sync){
+                    while(droneACuiConsegnare == null){
+                        LOGGER.info("NON HO TROVATO DRONI, VADO IN ATTESA...");
+                        sync.wait();
+                        droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
+                    }
+                }
+
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

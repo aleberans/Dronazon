@@ -3,6 +3,7 @@ package Support;
 import REST.beans.Drone;
 
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
@@ -106,4 +107,13 @@ public class MethodSupport {
         }
     }
 
+    public List<Drone> takeFreeDrone(List<Drone> drones) {
+        List<Drone> supp = new ArrayList<>();
+
+        for (Drone d: drones){
+            if (!d.isInRecharging() && !d.consegnaAssegnata())
+                supp.add(d);
+        }
+        return supp;
+    }
 }
