@@ -209,7 +209,6 @@ public class DroneClient {
             while (true) {
                 try {
                     synchronized (sync) {
-                        LOGGER.info("CHECK DRONI LIBERI: " + methodSupport.takeFreeDrone(drones));
                         while (methodSupport.takeFreeDrone(drones).size() == 0) {
                             LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI: \n" + drones);
                             sync.wait();
@@ -460,7 +459,6 @@ public class DroneClient {
                         droneACuiConsegnare = cercaDroneCheConsegna(drones, ordine);
                     }
                 }
-
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

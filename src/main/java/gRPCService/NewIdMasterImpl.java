@@ -117,7 +117,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             while (true) {
                 try {
                     synchronized (sync){
-                        while (methodSupport.thereIsDroneLibero(drones)) {
+                        while (methodSupport.takeFreeDrone(drones).size() == 0) {
                             LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n " +
                                     "STATO RETE: " + drones);
                             sync.wait();
@@ -155,6 +155,13 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             Drone droneACuiConsegnare = null;
             try {
                 droneACuiConsegnare = cercaDroneCheConsegna(ordine);
+                synchronized (sync){
+                    while(droneACuiConsegnare == null){
+                        LOGGER.info("NON HO TROVATO DRONI, VADO IN ATTESA...");
+                        sync.wait();
+                        droneACuiConsegnare = cercaDroneCheConsegna(ordine);
+                    }
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -222,12 +229,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         synchronized (drones) {
                 droni = droni.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
         }
-        LOGGER.info("DRONI SENZA CONSEGNA: " + stampaInfo(droni) +
-                "\nVIENE SCELTO: " + droni.stream()
-                .filter(d -> !d.isInRecharging())
-                .filter(d -> !d.consegnaAssegnata())
-                .min(Comparator.comparing(dr -> dr.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
-                .orElse(null).getId());
+
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
                 .filter(d -> !d.consegnaAssegnata())
