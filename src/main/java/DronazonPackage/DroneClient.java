@@ -140,7 +140,7 @@ public class DroneClient {
                 .addService(new ElectionImpl(drone, drones, methodSupport))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
-                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods))
+                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, dronesMap))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
                 .addService(new SendInRechargingImpl(drones, methodSupport, recharge, sync)).build();
         server.start();
@@ -276,7 +276,7 @@ public class DroneClient {
 
                             synchronized (ricarica) {
                                 while (drone.consegnaAssegnata() || drone.isInDelivery()) {
-                                    LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA");
+                                    LOGGER.info("IL DRONE VUOLE RICARICARSI MA È IMPEGNATO IN CONSEGNA O HA UNA CONSEGNA ASSEGNATA");
                                     ricarica.wait();
                                 }
                             }
@@ -284,8 +284,6 @@ public class DroneClient {
                             asynchronousMedthods.rechargeBattery(drone, drones);
 
                             rechargeProcess(drone);
-                            drone.setRecharged(true);
-                            drone.setWantRecharging(false);
                         }
                     } else if (check.equals("quit")) {
                         if (!drone.getIsMaster()) {
@@ -354,7 +352,7 @@ public class DroneClient {
 
             LOGGER.info("DRONE IN RICARICA...");
             try {
-                Thread.sleep(15000);
+                Thread.sleep(10000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -363,15 +361,19 @@ public class DroneClient {
             drone.setBatteria(100);
             asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
 
+            drone.setWantRecharging(false);
             drone.setInRecharging(false);
+            drone.setConsegnaAssegnata(false);
+            drone.setRecharged(true);
             synchronized (sync){
-                //LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
+                LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
                 sync.notify();
             }
-            LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
+            LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA: " + droneRechargingQueue.toString());
             asynchronousMedthods.asynchronousSendOkAfterCompleteRecharge(droneRechargingQueue, drone);
             droneRechargingQueue.cleanQueue();
             asynchronousMedthods.asynchronousSetDroneInRechargingFalse(drone, drone.getDroneMaster());
+            dronesMap.clear();
         }
     }
 
@@ -380,7 +382,7 @@ public class DroneClient {
         synchronized (recharge) {
             while (!(dronesMap.keySet().size() == drones.size())) {
                 try {
-                    LOGGER.info("VA IN ATTESA FINCHE' NON HA L'OK DA TUTTI GLI ALTRI DRONI...");
+                    LOGGER.info("VA IN ATTESA FINCHE' NON HA L'OK DA TUTTI GLI ALTRI DRONI... ");
                     recharge.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -392,7 +394,7 @@ public class DroneClient {
             idDroni.add(drone.getId());
         }
         idDroni.sort(Comparator.naturalOrder());
-        //LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
+        LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
 
         for (int i = 0; i < drones.size(); i++) {
             check = drones.get(i).getId() == idDroni.get(i);
