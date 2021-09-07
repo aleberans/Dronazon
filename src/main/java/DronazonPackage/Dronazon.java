@@ -64,11 +64,6 @@ public class Dronazon{
                 Thread.sleep(5000);
             }
 
-
-            /*if (client.isConnected())
-                client.disconnect();
-            System.out.println("Publisher " + clientId + " disconnected - Thread PID: " + Thread.currentThread().getId());*/
-
         } catch (MqttException me) {
             LOGGER.info("reason " + me.getReasonCode());
             LOGGER.info("msg " + me.getMessage());

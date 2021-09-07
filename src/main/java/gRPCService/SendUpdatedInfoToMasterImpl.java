@@ -42,12 +42,12 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
         }
         //SI METTE NON PIÙ IN FASE DI ELEZIONE E PUÒ COSI USCIRE
         drone.setInForwarding(false);
-        if (!drone.isInForwarding()) {
-            synchronized (inForward) {
-                while (drone.isInForwarding()) {
-                    inForward.notify();
-                }
+
+        synchronized (inForward) {
+            while (drone.isInForwarding()) {
+                inForward.notify();
             }
+
         }
     }
 }

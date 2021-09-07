@@ -40,6 +40,9 @@ public class ServerMethods {
             mediaInquinamento = droni.stream().map(
                     drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
                             / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
+            if (Double.isNaN(mediaInquinamento))
+                mediaInquinamento=0;
+
             mediaCountConsegne = droni.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
             mediaBatteriaResidua = droni.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
             mediaKmPercorsi = droni.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);

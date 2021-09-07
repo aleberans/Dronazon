@@ -76,7 +76,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
         }
         else{
-            LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
+            //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
 
             drone.setInDelivery(false);
             drone.setInElection(false);
@@ -85,11 +85,11 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             synchronized (election){
                 if (methodSupport.allDronesFreeFromElection(drones)) {
-                    LOGGER.info("TUTTI I DRONI FUORI DALL'ELEZIONE, NOTIFICA IN MODO CHE POSSA ENTRARE UN NUOVO DRONE");
+                    LOGGER.info("TUTTI I DRONI SONO FUORI DALL'ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
                     election.notify();
                 }
             }
-            LOGGER.info("ANELLO NON PIU IN ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
+            //LOGGER.info("ANELLO NON PIU IN ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
             MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
             NewIdMasterImpl.SendConsegnaThread sendConsegnaThread = new NewIdMasterImpl.SendConsegnaThread(drones, drone);
             sendConsegnaThread.start();
@@ -118,10 +118,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 try {
                     synchronized (sync){
                         while (methodSupport.takeFreeDrone(drones).size() == 0) {
-                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n " +
-                                    "STATO RETE: " + drones);
+                            LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n");
                             sync.wait();
-                            LOGGER.info("SVEGLIATO SU SYNC");
                         }
                     }
                     asynchronousSendConsegna(drones, drone);
@@ -193,15 +191,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                     synchronized (drones) {
                         drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                     }
-                        /*synchronized (sync){
-                            while (!methodSupport.thereIsDroneLibero(drones)) {
-                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI");
-                                sync.wait();
-                                LOGGER.info("SVEGLIATO SU SYNC");
-                            }
-                        }
-                        LOGGER.info("RIPARTE LA CONSEGNA DALLA ONERROR DI ASYNCHRONOUSSENDCONSEGNA");
-                        asynchronousSendConsegna(drones, d);*/
                 }
                 public void onCompleted() {
                     channel.shutdownNow();

@@ -194,7 +194,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
         drone.setConsegnaAssegnata(false);
         synchronized (ricarica){
-            LOGGER.info("DRONE NON HA PIÙ CONSEGNE ASSEGNATE, SVEGLIATO SU RICARICA");
+            //LOGGER.info("DRONE NON HA PIÙ CONSEGNE ASSEGNATE, SVEGLIATO SU RICARICA");
             ricarica.notify();
         }
         LOGGER.info("CONSEGNA E AGGIORNAMENTO DATI DRONE EFFETTUATE");
@@ -298,10 +298,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (sync){
-            while (queueOrdini.size() > 0 && methodSupport.thereIsDroneLibero(drones)){
-                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                        + queueOrdini.size() + "\n"
-                + "STATO DELLA LISTA: " + drones);
+            while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero(drones)){
+                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...");
                 sync.wait();
             }
         }
@@ -310,8 +308,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         synchronized (inForward) {
             while (drone.isInForwarding()) {
-                LOGGER.info("IL MASTER È IN FORWARDING, WAIT SU INFORWARD... \n" +
-                        "STATO MASTER: " + drone.toString());
+                LOGGER.info("IL MASTER È IN FORWARDING, WAIT SU INFORWARD... \n");
                 inForward.wait();
             }
         }

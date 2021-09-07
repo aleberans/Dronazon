@@ -40,13 +40,11 @@ public class DroneClient {
     private final BufferedReader bf;
     private final HashMap<Drone, String> dronesMap;
     private final Object ricarica;
-    private final Object rec;
 
     public DroneClient(BufferedReader bf) throws MqttException {
         this.bf = bf;
         this.dronesMap = new HashMap<>();
         rnd = new Random();
-        rec = new Object();
         LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
@@ -122,16 +120,17 @@ public class DroneClient {
 
             startSensori(drone);
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            //LOGGER.info("PORTA GIA USATA, ESCO");
+        } catch (IOException e) {
+            LOGGER.info("PORTA GIA USATA");
             System.exit(0);
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
     private void startServiceGrpc(int portaAscolto, List<Drone> drones, Drone drone, MqttClient client) throws IOException {
         Server server = ServerBuilder.forPort(portaAscolto)
-                .addService(new DronePresentationImpl(drones, sync, election, methodSupport))
+                .addService(new DronePresentationImpl(drones, election, methodSupport))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones, methodSupport, sync))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery,
@@ -141,7 +140,7 @@ public class DroneClient {
                 .addService(new ElectionImpl(drone, drones, methodSupport))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
-                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, recharge))
+                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
                 .addService(new SendInRechargingImpl(drones, methodSupport, recharge, sync)).build();
         server.start();
@@ -210,9 +209,8 @@ public class DroneClient {
                 try {
                     synchronized (sync) {
                         while (methodSupport.takeFreeDrone(drones).size() == 0) {
-                            LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI: \n" + drones);
+                            LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI...");
                             sync.wait();
-                            LOGGER.info("SVEGLIATO SU SYNC: HH" + stampaInfoWithRecharging(drones));
                         }
                     }
                     asynchronousSendConsegna(drones, drone);
@@ -306,13 +304,12 @@ public class DroneClient {
                             }
                             LOGGER.info("IL DRONE HA FINITO DI FARE FORWARDING, ESCO!");
                             serverMethods.removeDroneServer(drone);
-                            break;
                         } else {
                             client.disconnect();
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-                            LOGGER.info("STATO DRONE: \n" +
+                            /*LOGGER.info("STATO DRONE: \n" +
                                     "DELIVERY: " + drone.isInDelivery() + "\n" +
-                                    "FORWARDING: " + drone.isInForwarding());
+                                    "FORWARDING: " + drone.isInForwarding());*/
                             synchronized (inDelivery) {
                                 while (drone.isInDelivery()) {
                                     LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
@@ -320,9 +317,9 @@ public class DroneClient {
                                 }
                             }
                             synchronized (sync) {
-                                while (queueOrdini.size() > 0 || methodSupport.thereIsDroneLibero(drones)) {
-                                    LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                                            + queueOrdini.size() + "\n" + "lista: " + drones);
+                                while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)) {
+                                    /*LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
+                                            + queueOrdini.size() + "\n" + "lista: " + drones)*/
                                     sync.wait();
                                 }
                             }
@@ -338,8 +335,8 @@ public class DroneClient {
                             }
                             serverMethods.removeDroneServer(drone);
                             serverMethods.sendStatistics(drones);
-                            break;
                         }
+                        break;
                     }
                 } catch (MqttException | IOException | InterruptedException e) {
                     e.printStackTrace();
@@ -368,7 +365,7 @@ public class DroneClient {
 
             drone.setInRecharging(false);
             synchronized (sync){
-                LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
+                //LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
                 sync.notify();
             }
             LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
@@ -383,7 +380,7 @@ public class DroneClient {
         synchronized (recharge) {
             while (!(dronesMap.keySet().size() == drones.size())) {
                 try {
-                    LOGGER.info("VA IN WAIT SU RECHARGE");
+                    LOGGER.info("VA IN ATTESA FINCHE' NON HA L'OK DA TUTTI GLI ALTRI DRONI...");
                     recharge.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -395,7 +392,7 @@ public class DroneClient {
             idDroni.add(drone.getId());
         }
         idDroni.sort(Comparator.naturalOrder());
-        LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
+        //LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
 
         for (int i = 0; i < drones.size(); i++) {
             check = drones.get(i).getId() == idDroni.get(i);
@@ -412,7 +409,7 @@ public class DroneClient {
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        LOGGER.info("SITUAZIONE RETE: " + droni);
+        //LOGGER.info("SITUAZIONE RETE: " + droni);
 
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
@@ -489,15 +486,6 @@ public class DroneClient {
                         drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
                     }
 
-                        /*synchronized (sync){
-                            while (!methodSupport.thereIsDroneLibero(drones)) {
-                                LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI NELLA ONERROR");
-                                sync.wait();
-                                LOGGER.info("SVEGLIATO SU SYNC");
-                            }
-                        }
-
-                        asynchronousSendConsegna(drones, d);*/
                 }
                 public void onCompleted() {
                     channel.shutdown();

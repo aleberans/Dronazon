@@ -19,17 +19,14 @@ public class RechargeImpl extends RechargeImplBase {
     private final DroneRechargingQueue droneRechargingQueue;
     private final MethodSupport methodSupport;
     private final AsynchronousMedthods asynchronousMedthods;
-    private final Object recharge;
-    private final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
 
     public RechargeImpl(List<Drone> drones, Drone drone, DroneRechargingQueue droneRechargingQueue,
-                        MethodSupport methodSupport, AsynchronousMedthods asynchronousMedthods, Object recharge) {
+                        MethodSupport methodSupport, AsynchronousMedthods asynchronousMedthods) {
         this.drones = drones;
         this.drone = drone;
         this.droneRechargingQueue = droneRechargingQueue;
         this.methodSupport = methodSupport;
         this.asynchronousMedthods = asynchronousMedthods;
-        this.recharge = recharge;
     }
 
     @Override

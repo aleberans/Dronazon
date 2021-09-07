@@ -19,7 +19,7 @@ public class MethodSupport {
         synchronized (drones) {
             StringBuilder id = new StringBuilder();
             for (Drone d : droni) {
-                id.append(d.getId()).append(", ").append("ricarica: ").append(d.isInRecharging()).append(" ");
+                id.append(d.getId()).append(", ").append(" ");
             }
             return id.toString();
         }
@@ -57,7 +57,7 @@ public class MethodSupport {
             if (droni.size() == 1 && (droni.get(0).getIsMaster() && droni.get(0).getBatteria() < 20))
                 return false;
             for (Drone d : droni) {
-                if (!d.consegnaAssegnata() && !d.isInRecharging()) {
+                if (!d.consegnaAssegnata()) {
                     return true;
                 }
             }

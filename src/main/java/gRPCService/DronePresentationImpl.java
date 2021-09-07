@@ -14,14 +14,12 @@ import java.util.logging.Logger;
 public class DronePresentationImpl extends DronePresentationImplBase{
 
     private final List<Drone> drones;
-    private final Object sync;
     private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
     private final Object election;
     private final MethodSupport methodSupport;
 
-    public DronePresentationImpl(List<Drone> drones, Object sync, Object election, MethodSupport methodSupport){
+    public DronePresentationImpl(List<Drone> drones, Object election, MethodSupport methodSupport){
         this.drones = drones;
-        this.sync = sync;
         this.election = election;
         this.methodSupport = methodSupport;
     }
