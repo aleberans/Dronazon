@@ -219,6 +219,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                 droni = droni.stream().filter(d -> d.getPosizionePartenza() != null).collect(Collectors.toList());
         }
 
+        LOGGER.info("SITUAZIONE RETE: " + droni);
+
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
                 .filter(d -> !d.consegnaAssegnata())

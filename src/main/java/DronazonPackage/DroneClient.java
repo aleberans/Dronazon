@@ -411,7 +411,7 @@ public class DroneClient {
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        //LOGGER.info("SITUAZIONE RETE: " + droni);
+        LOGGER.info("SITUAZIONE RETE: " + droni);
 
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
