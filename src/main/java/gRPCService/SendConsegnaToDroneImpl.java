@@ -299,7 +299,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
 
         synchronized (sync){
             while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero(drones)){
-                LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...");
+                LOGGER.info("CI SONO ANCORA: " + queueOrdini.size() +" ORDINI IN CODA DA GESTIRE E NON CI SONO DRONI DISPONIBILI");
                 sync.wait();
             }
         }

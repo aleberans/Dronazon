@@ -73,33 +73,20 @@ public class ServerMethods {
         }
     }
 
-    public List<Drone> takeListFromServer(){
+    public void removeDroneServer(Drone drone){
         synchronized (drones) {
             ClientConfig clientConfig = new DefaultClientConfig();
-
+            clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+            clientConfig.getClasses().add(JacksonJsonProvider.class);
             Client client = Client.create(clientConfig);
 
-            WebResource webResource = client.resource("http://localhost:1337/smartcity");
+            WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
 
-            ClientResponse response = webResource.type("application/json").post(ClientResponse.class);
+            ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
 
-            return response.getEntity(new GenericType<List<Drone>>() {
-            });
-        }
-    }
-
-    public void removeDroneServer(Drone drone){
-        ClientConfig clientConfig = new DefaultClientConfig();
-        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-        clientConfig.getClasses().add(JacksonJsonProvider.class);
-        Client client = Client.create(clientConfig);
-
-        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
-
-        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
-
-        if (response.getStatus() != 200){
-            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
+            if (response.getStatus() != 200) {
+                throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
+            }
         }
     }
 }
