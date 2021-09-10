@@ -59,7 +59,7 @@ public class DroneClient {
         election = new Object();
         methodSupport = new MethodSupport(drones);
         serverMethods = new ServerMethods(drones);
-        asynchronousMedthods = new AsynchronousMedthods(methodSupport);
+        asynchronousMedthods = new AsynchronousMedthods(methodSupport, election);
         droneRechargingQueue = new DroneRechargingQueue(methodSupport, drones);
         recharge = new Object();
     }
@@ -107,7 +107,7 @@ public class DroneClient {
                 asynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
                 asynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
                         drones.get(drones.indexOf(methodSupport.findDrone(drones, drone))).getPosizionePartenza(),
-                        drone.getDroneMaster());
+                        drone.getDroneMaster(), drones);
             }
 
             PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
@@ -270,6 +270,9 @@ public class DroneClient {
                     if (check.equals("rec")) {
                         if (drone.getBatteria() < 20)
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
+                        else if (drone.isInRecharging()){
+                            LOGGER.info("IL DRONE E' GIA' IN RICARICA!");
+                        }
                         else {
                             drone.setWantRecharging(true);
                             asynchronousMedthods.asynchronousSetDroneInRechargingTrue(drone, drone.getDroneMaster());

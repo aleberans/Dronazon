@@ -74,6 +74,7 @@ public class Amministratore {
                     checkResponse();
 
                     System.out.println("Output from Server..." + response.getEntity(String.class)  + "\n\n");
+                    System.out.println(decisione);
                     break;
                 default:
                     System.out.println("Invalid insert, riprova...\n");

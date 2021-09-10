@@ -174,7 +174,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         });
     }
 
-    private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) {
+    private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) throws InterruptedException {
         drones.remove(masterCaduto);
         drone.setInElection(true);
         methodSupport.getDroneFromList(drone.getId(), drones).setInElection(true);
@@ -201,7 +201,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         asynchronousSendStatisticsAndInfoToMaster(consegna);
     }
 
-    private void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) {
+    public void asynchronousSendStatisticsAndInfoToMaster(Consegna consegna) {
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:"+drone.getDroneMaster().getPortaAscolto()).usePlaintext().build();
             ReceiveInfoAfterConsegnaGrpc.ReceiveInfoAfterConsegnaStub stub = ReceiveInfoAfterConsegnaGrpc.newStub(channel);
@@ -243,7 +243,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     drone.setBufferPM10(new ArrayList<>());
                     drone.setInDelivery(false);
                     synchronized (inDelivery) {
-                        inDelivery.notify();
+                        inDelivery.notifyAll();
                     }
                     synchronized (ricarica){
                         ricarica.notify();

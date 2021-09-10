@@ -23,9 +23,12 @@ public class AsynchronousMedthods {
     private static final String LOCALHOST = "localhost";
     private static final Logger LOGGER = Logger.getLogger(AsynchronousMedthods.class.getSimpleName());
     private final MethodSupport methodSupport;
+    private final Object election;
 
-    public AsynchronousMedthods(MethodSupport methodSupport){
+
+    public AsynchronousMedthods(MethodSupport methodSupport, Object election){
         this.methodSupport = methodSupport;
+        this.election = election;
     }
 
     public void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
@@ -107,7 +110,7 @@ public class AsynchronousMedthods {
         channel.awaitTermination(10, TimeUnit.SECONDS);
     }
 
-    public void asynchronousStartElection(List<Drone> drones, Drone drone){
+    public void asynchronousStartElection(List<Drone> drones, Drone drone) throws InterruptedException {
         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
@@ -131,7 +134,11 @@ public class AsynchronousMedthods {
                     synchronized (drones) {
                         drones.remove(successivo);
                     }
-                    asynchronousStartElection(drones, drone);
+                    try {
+                        asynchronousStartElection(drones, drone);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
@@ -147,7 +154,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousSendPositionToMaster(int id, Point posizione, Drone master) {
+    public void asynchronousSendPositionToMaster(int id, Point posizione, Drone master, List<Drone> drones) {
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
@@ -448,4 +455,5 @@ public class AsynchronousMedthods {
             }
         });
     }
+
 }
