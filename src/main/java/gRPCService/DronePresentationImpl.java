@@ -1,10 +1,8 @@
 package gRPCService;
 
 import REST.beans.Drone;
-import Support.MethodSupport;
 import com.example.grpc.DronePresentationGrpc.DronePresentationImplBase;
-import com.example.grpc.Message.SendInfoDrone;
-import com.example.grpc.Message.ackMessage;
+import com.example.grpc.Message.*;
 import io.grpc.stub.StreamObserver;
 
 import java.util.Comparator;
@@ -15,20 +13,22 @@ public class DronePresentationImpl extends DronePresentationImplBase{
 
     private final List<Drone> drones;
     private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
-    private final Object election;
-    private final MethodSupport methodSupport;
+    private final Drone currentDrone;
 
-    public DronePresentationImpl(List<Drone> drones, Object election, MethodSupport methodSupport){
+    public DronePresentationImpl(List<Drone> drones, Drone currentDrone){
         this.drones = drones;
-        this.election = election;
-        this.methodSupport = methodSupport;
+        this.currentDrone = currentDrone;
     }
 
     @Override
-    public void presentation(SendInfoDrone info, StreamObserver<ackMessage> streamObserver){
+    public void presentation(SendInfoDrone info, StreamObserver<isInElection> streamObserver){
 
         Drone drone = new Drone(info.getId(), info.getPortaAscolto(), info.getIndirizzoDrone());
-        ackMessage message = ackMessage.newBuilder().setMessage("").build();
+        isInElection message;
+        if (currentDrone.isInElection())
+            message = isInElection.newBuilder().setInElection(true).build();
+        else
+            message = isInElection.newBuilder().setInElection(false).build();
 
         synchronized (drones){
             drones.add(drone);

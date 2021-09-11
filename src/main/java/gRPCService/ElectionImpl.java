@@ -42,6 +42,7 @@ public class ElectionImpl extends ElectionImplBase {
         //IL DRONE CHE RICEVE IL MESSAGGIO DI ELEZIONE SI METTE COME OCCUPATO E NON PUO USCIRE
         //SI LIBERA QUANDO L'ELEZIONE È FINITA E HA MANDATO LE INFO AGGIORNATE AL NUOVO MASTER
         drone.setInForwarding(true);
+        drone.setInElection(true);
 
         int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
@@ -50,6 +51,11 @@ public class ElectionImpl extends ElectionImplBase {
         if (currentIdMaster == drone.getId()){
             drone.setIsMaster(true);
             drone.setInDelivery(true);
+            try {
+                Thread.sleep(15000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             methodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
             LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
             try {

@@ -105,9 +105,23 @@ public class DroneClient {
             } else {
                 asynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
                 asynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
+
+                Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+                LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
+                synchronized (election) {
+                    if (successivo.isInElection()) {
+                        try {
+                            LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
+                            election.wait();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                LOGGER.info("USACITO SU ELECTION");
                 asynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
                         drones.get(drones.indexOf(methodSupport.findDrone(drones, drone))).getPosizionePartenza(),
-                        drone.getDroneMaster(), drones);
+                        drone.getDroneMaster());
             }
 
             PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
@@ -130,7 +144,7 @@ public class DroneClient {
 
     private void startServiceGrpc(int portaAscolto, List<Drone> drones, Drone drone, MqttClient client) throws IOException {
         Server server = ServerBuilder.forPort(portaAscolto)
-                .addService(new DronePresentationImpl(drones, election, methodSupport))
+                .addService(new DronePresentationImpl(drones, drone))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
                 .addService(new SendPositionToDroneMasterImpl(drones, methodSupport, sync))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery,

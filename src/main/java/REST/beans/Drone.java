@@ -151,6 +151,7 @@ public class Drone implements Comparable<Drone>{
                 ", droneMaster=" + droneMaster +
                 ", consegnaAssegnata =" + consegnaAssegnata +
                 ", kmPercorsiSingoloDrone=" + kmPercorsiSingoloDrone +
+                ", isInElection= " + isInElection +
                 ", countConsegne=" + countConsegne +
                 ", isInDelivery=" + isInDelivery +
                 ", isInForwarding=" + isInForwarding +

@@ -154,7 +154,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousSendPositionToMaster(int id, Point posizione, Drone master, List<Drone> drones) {
+    public void asynchronousSendPositionToMaster(int id, Point posizione, Drone master){
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
@@ -323,9 +323,10 @@ public class AsynchronousMedthods {
                 Message.SendInfoDrone info = Message.SendInfoDrone.newBuilder().setId(drone.getId()).setPortaAscolto(drone.getPortaAscolto())
                         .setIndirizzoDrone(drone.getIndirizzoIpDrone()).build();
 
-                stub.presentation(info, new StreamObserver<Message.ackMessage>() {
+                stub.presentation(info, new StreamObserver<Message.isInElection>() {
                     @Override
-                    public void onNext(Message.ackMessage value) {
+                    public void onNext(Message.isInElection value) {
+                        methodSupport.takeDroneFromList(dron, drones).setInElection(value.getInElection());
                     }
 
                     @Override

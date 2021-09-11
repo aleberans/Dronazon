@@ -75,8 +75,12 @@ message Info{
   }
 }
 
+message isInElection{
+  required bool inElection=1;
+}
+
 service DronePresentation{
-  rpc presentation(SendInfoDrone) returns (ackMessage);
+  rpc presentation(SendInfoDrone) returns (isInElection);
 }
 
 service ReceiveWhoIsMaster{
