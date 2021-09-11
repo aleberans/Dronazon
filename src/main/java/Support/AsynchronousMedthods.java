@@ -216,6 +216,10 @@ public class AsynchronousMedthods {
                         LOGGER.info("Error" + t.getCause());
                         LOGGER.info("Error" + t.getLocalizedMessage());
                         LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                        channel.shutdown();
+                        synchronized (drones) {
+                            drones.remove(d);
+                        }
                     }
 
                     @Override
