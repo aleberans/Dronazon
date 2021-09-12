@@ -154,7 +154,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousSendPositionToMaster(int id, Point posizione, Drone master){
+    public void asynchronousSendPositionToMaster(Point posizione, Drone master, List<Drone> drones, Drone drone){
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
@@ -162,7 +162,7 @@ public class AsynchronousMedthods {
 
             Message.SendPositionToMaster.Posizione pos = Message.SendPositionToMaster.Posizione.newBuilder().setX(posizione.x).setY(posizione.y).build();
 
-            Message.SendPositionToMaster position = Message.SendPositionToMaster.newBuilder().setPos(pos).setId(id).build();
+            Message.SendPositionToMaster position = Message.SendPositionToMaster.newBuilder().setPos(pos).setId(drone.getId()).build();
 
             stub.sendPosition(position, new StreamObserver<Message.ackMessage>() {
                 @Override
@@ -175,6 +175,27 @@ public class AsynchronousMedthods {
                     LOGGER.info("Error" + t.getCause());
                     LOGGER.info("Error" + t.getLocalizedMessage());
                     LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                    /*try {
+                        LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
+                        asynchronousStartElection(drones, drone);
+                        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
+                        synchronized (election) {
+                            while (successivo.isInElection()) {
+                                try {
+                                    LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
+                                    election.wait();
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                        asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
+                                drone.getDroneMaster(), drones, drone);
+                        LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }*/
                 }
 
                 public void onCompleted() {

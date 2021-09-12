@@ -39,51 +39,55 @@ public class ElectionImpl extends ElectionImplBase {
         streamObserver.onNext(message);
         streamObserver.onCompleted();
 
-        //IL DRONE CHE RICEVE IL MESSAGGIO DI ELEZIONE SI METTE COME OCCUPATO E NON PUO USCIRE
-        //SI LIBERA QUANDO L'ELEZIONE È FINITA E HA MANDATO LE INFO AGGIORNATE AL NUOVO MASTER
-        drone.setInForwarding(true);
-        drone.setInElection(true);
+        if (!drone.isInElection()) {
+            //IL DRONE CHE RICEVE IL MESSAGGIO DI ELEZIONE SI METTE COME OCCUPATO E NON PUO USCIRE
+            //SI LIBERA QUANDO L'ELEZIONE È FINITA E HA MANDATO LE INFO AGGIORNATE AL NUOVO MASTER
+            drone.setInForwarding(true);
+            drone.setInElection(true);
 
-        int currentBatteriaResidua = electionMessage.getBatteriaResidua();
-        int currentIdMaster = electionMessage.getIdCurrentMaster();
+            int currentBatteriaResidua = electionMessage.getBatteriaResidua();
+            int currentIdMaster = electionMessage.getIdCurrentMaster();
 
-        //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
-        if (currentIdMaster == drone.getId()){
-            drone.setIsMaster(true);
-            drone.setInDelivery(true);
-            try {
-                Thread.sleep(15000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            methodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
-            LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
-            try {
-                electionCompleted(drone, currentIdMaster, drones);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        else {
-            if (currentBatteriaResidua < drone.getBatteria()) {
-                methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
-                forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
-                //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE, LIBERO IL DRONE CHE ERA OCCUPATO");
-            } else if (currentBatteriaResidua > drone.getBatteria()) {
-                methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
-                forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
-                //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
+            //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
+            if (currentIdMaster == drone.getId()) {
+                drone.setIsMaster(true);
+                drone.setInDelivery(true);
+                try {
+                    Thread.sleep(15000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                methodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+                LOGGER.info("ELEZIONE FINITA, PARTE LA TRASMISSIONE DEL NUOVO MASTER CON ID: " + currentIdMaster);
+                try {
+                    electionCompleted(drone, currentIdMaster, drones);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
             } else {
-                if (currentIdMaster < drone.getId()) {
-                    //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER, LIBERO IL DRONE CHE ERA OCCUPATO");
+                if (currentBatteriaResidua < drone.getBatteria()) {
                     methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
                     forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
-                } else if (currentIdMaster > drone.getId()) {
+                    //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE, LIBERO IL DRONE CHE ERA OCCUPATO");
+                } else if (currentBatteriaResidua > drone.getBatteria()) {
                     methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
                     forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
-                    //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
+                    //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
+                } else {
+                    if (currentIdMaster < drone.getId()) {
+                        //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER, LIBERO IL DRONE CHE ERA OCCUPATO");
+                        methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(false);
+                        forwardElection(drone, drone.getId(), drone.getBatteria(), drones);
+                    } else if (currentIdMaster > drone.getId()) {
+                        methodSupport.getDroneFromList(currentIdMaster, drones).setInDelivery(true);
+                        forwardElection(drone, currentIdMaster, currentBatteriaResidua, drones);
+                        //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
+                    }
                 }
             }
+        }
+        else{
+            LOGGER.info("ELEZIONE GIÀ IN CORSO, NON SI PUÒ INDIRNE UN'ALTRA!");
         }
     }
 

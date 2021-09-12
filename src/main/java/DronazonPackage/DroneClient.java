@@ -106,22 +106,33 @@ public class DroneClient {
                 asynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
                 asynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
 
-                Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
-                LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
-                synchronized (election) {
-                    if (successivo.isInElection()) {
-                        try {
-                            LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
-                            election.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                try {
+                    asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
+                            drone.getDroneMaster(), drones, drone);
+                }
+                catch (NullPointerException e){
+                    try {
+                        LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
+                        asynchronousMedthods.asynchronousStartElection(drones, drone);
+                        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
+                        synchronized (election) {
+                            if (successivo.isInElection()) {
+                                try {
+                                    LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
+                                    election.wait();
+                                } catch (InterruptedException j) {
+                                    j.printStackTrace();
+                                }
+                            }
                         }
+                        asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
+                                drone.getDroneMaster(), drones, drone);
+                        LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
+                    } catch (InterruptedException f) {
+                        f.printStackTrace();
                     }
                 }
-                LOGGER.info("USACITO SU ELECTION");
-                asynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
-                        drones.get(drones.indexOf(methodSupport.findDrone(drones, drone))).getPosizionePartenza(),
-                        drone.getDroneMaster());
             }
 
             PingeResultThread pingeResultThread = new PingeResultThread(drones, drone);
