@@ -112,12 +112,14 @@ public class DroneClient {
                 }
                 catch (NullPointerException e){
                     try {
-                        LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
-                        asynchronousMedthods.asynchronousStartElection(drones, drone);
                         Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
-                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
+                        LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
+                        drone.setInElection(true);
+                        asynchronousMedthods.asynchronousStartElection(drones, drone);
+                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
+                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());
                         synchronized (election) {
-                            if (successivo.isInElection()) {
+                            if (successivo.isInElection() || drone.isInElection()) {
                                 try {
                                     LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
                                     election.wait();
@@ -207,15 +209,6 @@ public class DroneClient {
                 }
             }
         }
-    }
-
-    public String stampaInfoWithRecharging(List<Drone> droni){
-        StringBuilder info = new StringBuilder();
-        for (Drone drone: droni){
-            info.append("\nID: ").append(drone.getId()).append(" ConsegnaAssegnata: ").append(drone.consegnaAssegnata())
-                    .append(" inRecharging: ").append(drone.isInRecharging()).append("\n");
-        }
-        return info.toString();
     }
 
     class SendConsegnaThread extends Thread {
@@ -439,21 +432,13 @@ public class DroneClient {
 
         droni.removeIf(d -> (d.getIsMaster() && d.getBatteria() < 20));
 
-        LOGGER.info("SITUAZIONE RETE: " + droni);
+        //LOGGER.info("SITUAZIONE RETE: " + droni);
 
         return droni.stream()
                 .filter(d -> !d.isInRecharging())
                 .filter(d -> !d.consegnaAssegnata())
                 .min(Comparator.comparing(drone -> drone.getPosizionePartenza().distance(ordine.getPuntoRitiro())))
                 .orElse(null);
-    }
-
-    public String stampaInfo(List<Drone> droni){
-        StringBuilder info = new StringBuilder();
-        for (Drone drone: droni){
-            info.append("\nID: ").append(drone.getId()).append(" ConsegnaAssegnata: ").append(drone.consegnaAssegnata()).append("\n");
-        }
-        return info.toString();
     }
 
     public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {

@@ -119,6 +119,7 @@ public class AsynchronousMedthods {
 
             Message.ElectionMessage electionMessage = Message.ElectionMessage
                     .newBuilder()
+                    .setDroneCheHaIndetto(drone.getId())
                     .setIdCurrentMaster(drone.getId())
                     .setBatteriaResidua(drone.getBatteria())
                     .build();
@@ -175,27 +176,6 @@ public class AsynchronousMedthods {
                     LOGGER.info("Error" + t.getCause());
                     LOGGER.info("Error" + t.getLocalizedMessage());
                     LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
-                    /*try {
-                        LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
-                        asynchronousStartElection(drones, drone);
-                        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
-                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection());
-                        synchronized (election) {
-                            while (successivo.isInElection()) {
-                                try {
-                                    LOGGER.info("VADO IN WAIT PERCHÈ I DRONI SONO IN ELEZIONE!");
-                                    election.wait();
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
-                        asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
-                                drone.getDroneMaster(), drones, drone);
-                        LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }*/
                 }
 
                 public void onCompleted() {
@@ -233,10 +213,10 @@ public class AsynchronousMedthods {
 
                     @Override
                     public void onError(Throwable t) {
-                        LOGGER.info("Error" + t.getMessage());
+                        /*LOGGER.info("Error" + t.getMessage());
                         LOGGER.info("Error" + t.getCause());
                         LOGGER.info("Error" + t.getLocalizedMessage());
-                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));
+                        LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));*/
                         channel.shutdown();
                         synchronized (drones) {
                             drones.remove(d);

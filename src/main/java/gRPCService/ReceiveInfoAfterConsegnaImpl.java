@@ -51,7 +51,7 @@ public class ReceiveInfoAfterConsegnaImpl extends ReceiveInfoAfterConsegnaGrpc.R
 
             if (!drone.isInRecharging()) {
                 synchronized (sync) {
-                    LOGGER.info("SVEGLIA SYNC DOPO RICEZIONE INFO DAL DRONE: " + sendStat.getIdDrone() + " AL MASTER");
+                    //LOGGER.info("SVEGLIA SYNC DOPO RICEZIONE INFO DAL DRONE: " + sendStat.getIdDrone() + " AL MASTER");
                     sync.notifyAll();
                 }
             }
