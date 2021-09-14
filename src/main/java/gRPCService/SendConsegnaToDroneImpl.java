@@ -161,7 +161,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                     channel.shutdownNow();
                     drone.setInForwarding(false);
                     synchronized (inForward) {
-                        LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO, SVEGLIA SU INFORWARD");
+                        //LOGGER.info("INFORMAZIONI SULLA CONSEGNA INOLTRATE AL SUCCESSIVO, SVEGLIA SU INFORWARD");
                         inForward.notifyAll();
                     }
                 }

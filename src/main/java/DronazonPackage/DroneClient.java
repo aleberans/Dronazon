@@ -387,10 +387,10 @@ public class DroneClient {
             drone.setConsegnaAssegnata(false);
             drone.setRecharged(true);
             synchronized (sync){
-                LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
+                //LOGGER.info("RICARICA FINITA, SVEGLIO SYNC...");
                 sync.notify();
             }
-            LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA: " + droneRechargingQueue.toString());
+            LOGGER.info("MANDO OK AGLI ALTRI DRONI IN ATTESA");
             asynchronousMedthods.asynchronousSendOkAfterCompleteRecharge(droneRechargingQueue, drone);
             droneRechargingQueue.cleanQueue();
             asynchronousMedthods.asynchronousSetDroneInRechargingFalse(drone, drone.getDroneMaster());
@@ -415,7 +415,7 @@ public class DroneClient {
             idDroni.add(drone.getId());
         }
         idDroni.sort(Comparator.naturalOrder());
-        LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
+        //LOGGER.info("ID DRONI MAPPA ORDINATA: " + idDroni);
 
         for (int i = 0; i < drones.size(); i++) {
             check = drones.get(i).getId() == idDroni.get(i);
