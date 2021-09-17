@@ -243,7 +243,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         public void run(){
             while(true){
                 if (queueOrdini.size() != 0) {
-                    serverMethods.sendStatistics(drones);
+                    serverMethods.sendStatistics();
                     try {
                         Thread.sleep(10000);
                     } catch (InterruptedException e) {

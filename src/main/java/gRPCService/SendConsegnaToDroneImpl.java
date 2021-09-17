@@ -324,7 +324,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 sync.wait();
             }
         }
-        serverMethods.sendStatistics(drones);
+        serverMethods.sendStatistics();
         serverMethods.removeDroneServer(drone);
     }
 }

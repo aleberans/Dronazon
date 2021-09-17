@@ -23,7 +23,7 @@ public class ServerMethods {
         this.drones= drones;
     }
 
-    public String sendStatistics(List<Drone> droni){
+    public String sendStatistics(){
         Client client = Client.create();
         WebResource webResource2 = client.resource("http://localhost:1337/smartcity/statistics/add");
 
@@ -37,16 +37,16 @@ public class ServerMethods {
         int countDroniAttivi;
 
         synchronized (drones) {
-            mediaInquinamento = droni.stream().map(
+            mediaInquinamento = drones.stream().map(
                     drone -> drone.getBufferPM10().stream().reduce(0.0, Double::sum)
                             / drone.getBufferPM10().size()).reduce(0.0, Double::sum);
             if (Double.isNaN(mediaInquinamento))
                 mediaInquinamento=0;
 
-            mediaCountConsegne = droni.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
-            mediaBatteriaResidua = droni.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
-            mediaKmPercorsi = droni.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
-            countDroniAttivi = (int) droni.stream().map(Drone::getId).count();
+            mediaCountConsegne = drones.stream().map(Drone::getCountConsegne).reduce(0, Integer::sum);
+            mediaBatteriaResidua = drones.stream().map(Drone::getBatteria).reduce(0, Integer::sum);
+            mediaKmPercorsi = drones.stream().map(Drone::getKmPercorsiSingoloDrone).reduce(0.0, Double::sum);
+            countDroniAttivi = (int) drones.stream().map(Drone::getId).count();
         }
 
         Statistic statistic = new Statistic(ts.toString(),  mediaCountConsegne/countDroniAttivi,
@@ -58,35 +58,31 @@ public class ServerMethods {
     }
 
     public List<Drone> addDroneServer(Drone drone){
-        synchronized (drones) {
-            ClientConfig clientConfig = new DefaultClientConfig();
-            clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-            clientConfig.getClasses().add(JacksonJsonProvider.class);
-            Client client = Client.create(clientConfig);
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
 
-            WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/add");
 
-            ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
+        ClientResponse response = webResource.type("application/json").post(ClientResponse.class, drone);
 
-            return response.getEntity(new GenericType<List<Drone>>() {
-            });
-        }
+        return response.getEntity(new GenericType<List<Drone>>() {
+        });
     }
 
     public void removeDroneServer(Drone drone){
-        synchronized (drones) {
-            ClientConfig clientConfig = new DefaultClientConfig();
-            clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
-            clientConfig.getClasses().add(JacksonJsonProvider.class);
-            Client client = Client.create(clientConfig);
+        ClientConfig clientConfig = new DefaultClientConfig();
+        clientConfig.getFeatures().put(JSONConfiguration.FEATURE_POJO_MAPPING, Boolean.TRUE);
+        clientConfig.getClasses().add(JacksonJsonProvider.class);
+        Client client = Client.create(clientConfig);
 
-            WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
+        WebResource webResource = client.resource("http://localhost:1337/smartcity/remove/" + drone.getId());
 
-            ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
+        ClientResponse response = webResource.type("application/json").delete(ClientResponse.class, drone.getId());
 
-            if (response.getStatus() != 200) {
-                throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
-            }
+        if (response.getStatus() != 200) {
+            throw new RuntimeException("Fallito : codice HTTP " + response.getStatus());
         }
     }
 }
