@@ -85,11 +85,11 @@ public class AsynchronousMedthods {
             public void onError(Throwable t) {
                 try {
                     channel.shutdown();
-                    if (drone.getDroneMaster() == successivo){
-                        LOGGER.info("ELEZIONE INDETTA TRAMITE PING");
+                    if (drone.getDroneMaster() == successivo && !drone.isInElection()){
                         synchronized (drones){
                             drones.remove(successivo);
                         }
+                        LOGGER.info("ELEZIONE INDETTA TRAMITE PING");
                         asynchronousStartElection(drone);
                     }
                     else

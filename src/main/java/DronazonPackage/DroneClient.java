@@ -116,8 +116,8 @@ public class DroneClient {
                         LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
                         drone.setInElection(true);
                         asynchronousMedthods.asynchronousStartElection(drone);
-                        /*LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
-                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());*/
+                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
+                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());
                         synchronized (election) {
                             if (successivo.isInElection() || drone.isInElection()) {
                                 try {
