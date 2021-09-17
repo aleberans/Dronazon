@@ -45,8 +45,7 @@ public class ElectionImpl extends ElectionImplBase {
 
 
         if (!drone.isInElection() || drone.getId() == idDroneCheHaIndetto){
-            //IL DRONE CHE RICEVE IL MESSAGGIO DI ELEZIONE SI METTE COME OCCUPATO E NON PUO USCIRE
-            //SI LIBERA QUANDO L'ELEZIONE È FINITA E HA MANDATO LE INFO AGGIORNATE AL NUOVO MASTER
+
             drone.setInForwarding(true);
             drone.setInElection(true);
 

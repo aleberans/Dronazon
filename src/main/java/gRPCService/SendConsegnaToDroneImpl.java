@@ -83,7 +83,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             LOGGER.info("IL DRONE: "+ consegna.getIdDrone() + " È CADUTO E LO TOLGO");
             drone.setInForwarding(false);
             synchronized (ricarica){
-                LOGGER.info("DRONE NON PIÙ IN FORWARDING, SVEGLIATO SU RICARICA");
+                //LOGGER.info("DRONE NON PIÙ IN FORWARDING, SVEGLIATO SU RICARICA");
                 ricarica.notify();
             }
             synchronized (drones) {

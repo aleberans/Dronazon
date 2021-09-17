@@ -117,6 +117,7 @@ public class AsynchronousMedthods {
 
             ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
 
+            LOGGER.info("DRONE CHE HA INDETTO: " + drone.getId());
             Message.ElectionMessage electionMessage = Message.ElectionMessage
                     .newBuilder()
                     .setDroneCheHaIndetto(drone.getId())

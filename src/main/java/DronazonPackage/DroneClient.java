@@ -116,8 +116,8 @@ public class DroneClient {
                         LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
                         drone.setInElection(true);
                         asynchronousMedthods.asynchronousStartElection(drone);
-                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
-                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());
+                        /*LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
+                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());*/
                         synchronized (election) {
                             if (successivo.isInElection() || drone.isInElection()) {
                                 try {
@@ -286,6 +286,8 @@ public class DroneClient {
                     if (check.equals("rec")) {
                         if (drone.getBatteria() < 20)
                             LOGGER.info("IL DRONE È IN USCITA, NON È POSSIBILE RICARICARE LA BATTERIA...");
+                        else if(drone.getBatteria() == 20 && (drone.consegnaAssegnata() || drone.isInDelivery()))
+                            LOGGER.info("IL DRONE HA UNA CONSEGNA ASSEGNATA E ANDRA' SOTTO AL 20% DI BATTERIA, DEVE USCIRE!");
                         else if (drone.isInRecharging()){
                             LOGGER.info("IL DRONE E' GIA' IN RICARICA!");
                         }
@@ -324,9 +326,7 @@ public class DroneClient {
                         } else {
                             client.disconnect();
                             LOGGER.info("IL DRONE MASTER È STATO QUITTATO, GESTISCO TUTTO PRIMA DI CHIUDERLO");
-                            /*LOGGER.info("STATO DRONE: \n" +
-                                    "DELIVERY: " + drone.isInDelivery() + "\n" +
-                                    "FORWARDING: " + drone.isInForwarding());*/
+
                             synchronized (inDelivery) {
                                 while (drone.isInDelivery()) {
                                     LOGGER.info("IL DRONE È IL DELIVERY, WAIT...");
@@ -335,8 +335,8 @@ public class DroneClient {
                             }
                             synchronized (sync) {
                                 while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero()) {
-                                    /*LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
-                                            + queueOrdini.size() + "\n" + "lista: " + drones)*/
+                                    LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
+                                            + queueOrdini.size() + "\n" + "lista: " + drones);
                                     sync.wait();
                                 }
                             }
@@ -495,9 +495,8 @@ public class DroneClient {
                 public void onError(Throwable t) {
                     LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                     channel.shutdownNow();
-                    synchronized (drones) {
-                        drones.remove(methodSupport.takeDroneSuccessivo(d));
-                    }
+                    drones.remove(methodSupport.takeDroneSuccessivo(d));
+
 
                 }
                 public void onCompleted() {

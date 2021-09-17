@@ -68,7 +68,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         drone.setInElection(false);
         synchronized (election){
                 LOGGER.info("TUTTI I DRONI SONO FUORI DALL'ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
-                election.notify();
+                election.notifyAll();
         }
 
         if (idMaster.getIdNewMaster() != drone.getId()) {
