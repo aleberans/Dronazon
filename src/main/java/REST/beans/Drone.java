@@ -37,53 +37,47 @@ public class Drone implements Comparable<Drone>{
         this.indirizzoIpDrone = indirizzoIpDrone;
     }
 
-    public synchronized boolean isRecharged() {
+    public boolean isRecharged() {
         return recharged;
     }
 
-    public synchronized void setRecharged(boolean recharged) {
+    public void setRecharged(boolean recharged) {
         this.recharged = recharged;
     }
 
-    public synchronized boolean isInForwarding() {
+    public boolean isInForwarding() {
         return isInForwarding;
     }
 
-    public synchronized void setInForwarding(boolean isInForwarding) {
+    public void setInForwarding(boolean isInForwarding) {
         this.isInForwarding = isInForwarding;
-        if (!isInForwarding)
-            notify();
     }
 
-    public synchronized void setInDelivery(boolean isInDelivery){
+    public void setInDelivery(boolean isInDelivery){
         this.isInDelivery = isInDelivery;
-        if (!isInDelivery)
-            notify();
     }
 
-    public synchronized boolean isInElection() {
+    public boolean isInElection() {
         return isInElection;
     }
 
-    public synchronized void setInElection(boolean inElection) {
+    public void setInElection(boolean inElection) {
         isInElection = inElection;
-        if (!isInElection)
-            notify();
     }
 
-    public synchronized void setInRecharging(boolean inRecharging) {
+    public void setInRecharging(boolean inRecharging) {
         isInRecharging = inRecharging;
     }
 
-    public synchronized boolean isInRecharging() {
+    public boolean isInRecharging() {
         return isInRecharging;
     }
 
-    public synchronized void setWantRecharging(boolean wantRecharge) {
+    public void setWantRecharging(boolean wantRecharge) {
         this.wantRecharge = wantRecharge;
     }
 
-    public synchronized boolean getWantRecharge() {
+    public boolean getWantRecharge() {
         return wantRecharge;
     }
 

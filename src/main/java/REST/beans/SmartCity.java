@@ -30,7 +30,7 @@ public class SmartCity {
         return new ArrayList<>(smartCity);
     }
     
-    public String stampaSmartCity(){
+    public synchronized String stampaSmartCity(){
         
         StringBuilder result = new StringBuilder();
         
@@ -62,7 +62,7 @@ public class SmartCity {
         smartCity.remove(drone);
     }
 
-    public boolean checkEqualId(Drone drone){
+    public synchronized boolean checkEqualId(Drone drone){
         boolean sem = false;
         for (Drone d : smartCity) {
             if (d.getId() == drone.getId()) {
