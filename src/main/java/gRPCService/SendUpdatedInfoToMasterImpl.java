@@ -35,9 +35,9 @@ public class SendUpdatedInfoToMasterImpl extends SendUpdatedInfoToMasterGrpc.Sen
         Point pos = new Point(info.getPosizione().getX(), info.getPosizione().getY());
 
         synchronized (drones) {
-            methodSupport.getDroneFromList(info.getId(), drones).setPosizionePartenza(pos);
-            methodSupport.getDroneFromList(info.getId(), drones).setBatteria(info.getBatteria());
-            methodSupport.getDroneFromList(info.getId(), drones).setConsegnaAssegnata(false);
+            methodSupport.getDroneFromList(info.getId()).setPosizionePartenza(pos);
+            methodSupport.getDroneFromList(info.getId()).setBatteria(info.getBatteria());
+            methodSupport.getDroneFromList(info.getId()).setConsegnaAssegnata(false);
 
         }
         //SI METTE NON PIÙ IN FASE DI ELEZIONE E PUÒ COSI USCIRE

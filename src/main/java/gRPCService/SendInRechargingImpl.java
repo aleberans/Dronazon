@@ -33,11 +33,11 @@ public class SendInRechargingImpl extends SendInRechargingImplBase {
         streamObserver.onCompleted();
 
         if (recharging.getRecharging()) {
-            methodSupport.takeDroneFromId(droni, recharging.getId()).setInRecharging(true);
+            methodSupport.takeDroneFromId(recharging.getId()).setInRecharging(true);
             LOGGER.info("DRONE: " + recharging.getId() + " IMPOSTATO IN RICARICA");
         }
         else {
-            methodSupport.takeDroneFromId(droni, recharging.getId()).setInRecharging(false);
+            methodSupport.takeDroneFromId(recharging.getId()).setInRecharging(false);
             LOGGER.info("DRONE: " + recharging.getId() + " IMPOSTATO NON IN RICARICA");
             synchronized (recharge){
                 recharge.notify();

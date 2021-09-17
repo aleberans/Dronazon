@@ -78,12 +78,12 @@ public class DroneClient {
 
             drones.addAll(serverMethods.addDroneServer(drone));
 
-            methodSupport.updatePositionPartenzaDrone(drones, drone);
+            methodSupport.updatePositionPartenzaDrone(drone);
 
             if (drones.size() == 1) {
                 drone.setIsMaster(true);
                 drone.setDroneMaster(drone);
-                methodSupport.getDroneFromList(drone.getId(), drones).setIsMaster(true);
+                methodSupport.getDroneFromList(drone.getId()).setIsMaster(true);
             } else
                 drone.setIsMaster(false);
 
@@ -107,12 +107,12 @@ public class DroneClient {
                 asynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
 
                 try {
-                    asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
+                    asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone).getPosizionePartenza(),
                             drone.getDroneMaster(), drones, drone);
                 }
                 catch (NullPointerException e){
                     try {
-                        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+                        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
                         LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
                         drone.setInElection(true);
                         asynchronousMedthods.asynchronousStartElection(drones, drone);
@@ -128,7 +128,7 @@ public class DroneClient {
                                 }
                             }
                         }
-                        asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
+                        asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone).getPosizionePartenza(),
                                 drone.getDroneMaster(), drones, drone);
                         LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
                     } catch (InterruptedException f) {
@@ -226,7 +226,7 @@ public class DroneClient {
             while (true) {
                 try {
                     synchronized (sync) {
-                        while (methodSupport.takeFreeDrone(drones).size() == 0) {
+                        while (methodSupport.takeFreeDrone().size() == 0) {
                             LOGGER.info("VA IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI...");
                             sync.wait();
                         }
@@ -261,7 +261,7 @@ public class DroneClient {
                              "TOTALE KM PERCORSI: " + drone.getKmPercorsiSingoloDrone() + "\n" +
                              "P10 RILEVATO: " + drone.getBufferPM10() + "\n" +
                              "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n" +
-                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni(drones) + "\n");
+                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni() + "\n");
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -336,7 +336,7 @@ public class DroneClient {
                                 }
                             }
                             synchronized (sync) {
-                                while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero(drones)) {
+                                while (queueOrdini.size() > 0 || !methodSupport.thereIsDroneLibero()) {
                                     /*LOGGER.info("CI SONO ANCORA CONSEGNE IN CODA DA GESTIRE E NON CI SONO DRONI O C'E' UN DRONE A CUI E' STATA DATA UNA CONSEGNA, WAIT...\n"
                                             + queueOrdini.size() + "\n" + "lista: " + drones)*/
                                     sync.wait();
@@ -347,7 +347,7 @@ public class DroneClient {
                             //methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
 
                             synchronized (sync) {
-                                while (!methodSupport.allDroniLiberi(drones)) {
+                                while (!methodSupport.allDroniLiberi()) {
                                     LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE");
                                     sync.wait();
                                 }
@@ -443,10 +443,10 @@ public class DroneClient {
 
     public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
 
-        Drone d = methodSupport.takeDroneFromList(drone, drones);
+        Drone d = methodSupport.takeDroneFromList(drone);
         Ordine ordine = queueOrdini.consume();
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
             SendConsegnaToDroneGrpc.SendConsegnaToDroneStub stub = SendConsegnaToDroneGrpc.newStub(channel);
@@ -483,7 +483,7 @@ public class DroneClient {
                     .build();
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
-            methodSupport.takeDroneFromList(droneACuiConsegnare, drones).setConsegnaAssegnata(true);
+            methodSupport.takeDroneFromList(droneACuiConsegnare).setConsegnaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
@@ -498,7 +498,7 @@ public class DroneClient {
                     LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                     channel.shutdownNow();
                     synchronized (drones) {
-                        drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                        drones.remove(methodSupport.takeDroneSuccessivo(d));
                     }
 
                 }

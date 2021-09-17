@@ -15,19 +15,19 @@ public class MethodSupport {
         this.drones= drones;
     }
 
-    public String getAllIdDroni(List<Drone> droni){
+    public String getAllIdDroni(){
         synchronized (drones) {
             StringBuilder id = new StringBuilder();
-            for (Drone d : droni) {
+            for (Drone d : drones) {
                 id.append(d.getId()).append(", ").append(" ");
             }
             return id.toString();
         }
     }
 
-    public Drone takeDroneFromId(List<Drone> droni, int id){
+    public Drone takeDroneFromId(int id){
         synchronized (drones) {
-            for (Drone d : droni) {
+            for (Drone d : drones) {
                 if (d.getId() == id)
                     return d;
             }
@@ -35,10 +35,10 @@ public class MethodSupport {
         }
     }
 
-    public Drone findDrone(List<Drone> droni, Drone drone){
+    public Drone findDrone(Drone drone){
         synchronized (drones) {
             Drone dro = null;
-            for (Drone d : droni) {
+            for (Drone d : drones) {
                 if (d.getId() == drone.getId())
                     dro = d;
             }
@@ -46,17 +46,17 @@ public class MethodSupport {
         }
     }
 
-    public Drone takeDroneFromList(Drone drone, List<Drone> droni){
+    public Drone takeDroneFromList(Drone drone){
         synchronized (drones){
-            return droni.get(droni.indexOf(findDrone(droni, drone)));
+            return drones.get(drones.indexOf(findDrone(drone)));
         }
     }
 
-    public boolean thereIsDroneLibero(List<Drone> droni){
+    public boolean thereIsDroneLibero(){
         synchronized(drones) {
-            if (droni.size() == 1 && (droni.get(0).getIsMaster() && droni.get(0).getBatteria() < 20))
+            if (drones.size() == 1 && (drones.get(0).getIsMaster() && drones.get(0).getBatteria() < 20))
                 return false;
-            for (Drone d : droni) {
+            for (Drone d : drones) {
                 if (!d.consegnaAssegnata()) {
                     return true;
                 }
@@ -65,9 +65,9 @@ public class MethodSupport {
         }
     }
 
-    public boolean allDroniLiberi(List<Drone> droni){
+    public boolean allDroniLiberi(){
         synchronized(drones) {
-            for (Drone d : droni) {
+            for (Drone d : drones) {
                 if (d.consegnaAssegnata())
                     return false;
             }
@@ -75,44 +75,35 @@ public class MethodSupport {
         }
     }
 
-    public Drone takeDroneSuccessivo(Drone drone, List<Drone> droni){
+    public Drone takeDroneSuccessivo(Drone drone){
         synchronized(drones) {
-            int pos = droni.indexOf(findDrone(droni, drone));
-            return droni.get((pos + 1) % droni.size());
+            int pos = drones.indexOf(findDrone(drone));
+            return drones.get((pos + 1) % drones.size());
         }
     }
 
-    public Drone getDroneFromList(int id, List<Drone> droni){
+    public Drone getDroneFromList(int id){
         synchronized(drones) {
-            return droni.get(droni.indexOf(takeDroneFromId(droni, id)));
+            return drones.get(drones.indexOf(takeDroneFromId(id)));
         }
     }
 
-    public void updatePositionPartenzaDrone(List<Drone> droni, Drone drone){
+    public void updatePositionPartenzaDrone(Drone drone){
         Random rnd = new Random();
         Point posizionePartenza = new Point(rnd.nextInt(10), rnd.nextInt(10));
         synchronized (drones) {
-            droni.get(droni.indexOf(findDrone(droni, drone))).setPosizionePartenza(posizionePartenza);
+            drones.get(drones.indexOf(findDrone(drone))).setPosizionePartenza(posizionePartenza);
             drone.setPosizionePartenza(posizionePartenza);
         }
     }
 
-    public boolean allDronesFreeFromElection(List<Drone> droni){
-        synchronized (drones){
-            for (Drone d: droni){
-                if (d.isInElection())
-                    return false;
-            }
-            return true;
-        }
-    }
-
-    public List<Drone> takeFreeDrone(List<Drone> drones) {
+    public List<Drone> takeFreeDrone() {
         List<Drone> supp = new ArrayList<>();
-
-        for (Drone d: drones){
-            if (!d.isInRecharging() && !d.consegnaAssegnata())
-                supp.add(d);
+        synchronized (drones) {
+            for (Drone d : drones) {
+                if (!d.isInRecharging() && !d.consegnaAssegnata())
+                    supp.add(d);
+            }
         }
         return supp;
     }

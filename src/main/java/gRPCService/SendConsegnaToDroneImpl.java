@@ -87,7 +87,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 ricarica.notify();
             }
             synchronized (drones) {
-                drones.remove(methodSupport.takeDroneFromId(drones, consegna.getIdDrone()));
+                drones.remove(methodSupport.takeDroneFromId(consegna.getIdDrone()));
             }
 
             Ordine ordineDaRiaggiungere = new Ordine(consegna.getIdDrone(),
@@ -110,8 +110,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
 
 
-        Drone d = methodSupport.takeDroneFromList(drone, drones);
-        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
+        Drone d = methodSupport.takeDroneFromList(drone);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d);
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
@@ -127,8 +127,8 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                 public void onError(Throwable t) {
                     try {
                         channel.shutdownNow();
-                        if (methodSupport.takeDroneSuccessivo(d, drones).getIsMaster()){
-                            Drone masterCaduto = methodSupport.takeDroneSuccessivo(d, drones);
+                        if (methodSupport.takeDroneSuccessivo(d).getIsMaster()){
+                            Drone masterCaduto = methodSupport.takeDroneSuccessivo(d);
                             LOGGER.info("IL DRONE PRIMA DEL MASTER SI È ACCORTO CHE IL MASTER È CADUTO, INDICE UNA NUOVA ELEZIONE");
                             synchronized (drones) {
                                 startElection(drones, d, masterCaduto);
@@ -137,7 +137,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                         }
                         else {
                             synchronized (drones) {
-                                drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                                drones.remove(methodSupport.takeDroneSuccessivo(d));
                             }
                         }
                         forwardConsegna(consegna);
@@ -177,7 +177,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     private void startElection(List<Drone> drones, Drone drone, Drone masterCaduto) throws InterruptedException {
         drones.remove(masterCaduto);
         drone.setInElection(true);
-        methodSupport.getDroneFromList(drone.getId(), drones).setInElection(true);
+        methodSupport.getDroneFromList(drone.getId()).setInElection(true);
         asynchronousMedthods.asynchronousStartElection(drones, drone);
     }
 
@@ -191,7 +191,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drone.setBatteria(drone.getBatteria()-10);
         drone.setCountConsegne(drone.getCountConsegne()+1);
         drone.setKmPercorsiSingoloDrone(posizioneInizialeDrone.distance(posizioneRitiro) + posizioneRitiro.distance(posizioneConsegna));
-        methodSupport.getDroneFromList(drone.getId(), drones).setConsegnaAssegnata(false);
+        methodSupport.getDroneFromList(drone.getId()).setConsegnaAssegnata(false);
         drone.setConsegnaAssegnata(false);
         synchronized (ricarica){
             //LOGGER.info("DRONE NON HA PIÙ CONSEGNE ASSEGNATE, SVEGLIATO SU RICARICA");
@@ -298,7 +298,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         LOGGER.info("MASTER DISCONNESSO DAL BROKER");
 
         synchronized (sync){
-            while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero(drones)){
+            while (queueOrdini.size() > 0 && !methodSupport.thereIsDroneLibero()){
                 LOGGER.info("CI SONO ANCORA: " + queueOrdini.size() +" ORDINI IN CODA DA GESTIRE E NON CI SONO DRONI DISPONIBILI");
                 sync.wait();
             }
@@ -319,7 +319,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
             }
         }
         synchronized (sync){
-            while(!methodSupport.allDroniLiberi(drones)){
+            while(!methodSupport.allDroniLiberi()){
                 LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE");
                 sync.wait();
             }

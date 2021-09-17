@@ -42,18 +42,18 @@ public class RechargeImpl extends RechargeImplBase {
         streamObserver.onCompleted();
 
         if (drone.getId() == messageRecharge.getId()){
-            asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
+            asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(messageRecharge.getId()), drone);
             timeStampCurrentDrone = messageRecharge.getTimestamp();
         }
         else {
             if (!drone.isInRecharging() && !drone.getWantRecharge()) {
-                asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
+                asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(messageRecharge.getId()), drone);
             } else if (drone.isInRecharging()) {
                 droneRechargingQueue.add(messageRecharge);
             } else if (drone.getWantRecharge() && !drone.isRecharged()) {
                 LOGGER.info("timeStampCurrentDrone: " + timeStampCurrentDrone);
                 if (messageRecharge.getTimestamp().compareTo(timeStampCurrentDrone) < 0) {
-                    asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(drones, messageRecharge.getId()), drone);
+                    asynchronousMedthods.asynchronousAnswerToRequestOfRecharge(methodSupport.takeDroneFromId(messageRecharge.getId()), drone);
                 } else {
                     droneRechargingQueue.add(messageRecharge);
                 }

@@ -29,9 +29,8 @@ public class AnswerRechargeImpl extends AnswerRechargeGrpc.AnswerRechargeImplBas
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();
 
-        dronesMap.put(methodSupport.takeDroneFromId(drones, answer.getId()), answer.getAnswer());
-        /*LOGGER.info("ID DRONE AGGIUNTO NELLA MAPPA: " + methodSupport.takeDroneFromId(drones, answer.getId()).getId() +
-                "\nSTATO MAPPA: " + dronesMap.keySet());*/
+        dronesMap.put(methodSupport.takeDroneFromId(answer.getId()), answer.getAnswer());
+
         synchronized (recharge) {
             if (dronesMap.size() == drones.size()){
                 recharge.notifyAll();

@@ -63,7 +63,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         streamObserver.onNext(ackMessage.newBuilder().setMessage("").build());
         streamObserver.onCompleted();
 
-        drone.setDroneMaster(methodSupport.takeDroneFromId(drones, idMaster.getIdNewMaster()));
+        drone.setDroneMaster(methodSupport.takeDroneFromId(idMaster.getIdNewMaster()));
         drone.setInForwarding(true);
         drone.setInElection(false);
         synchronized (election){
@@ -74,17 +74,12 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         if (idMaster.getIdNewMaster() != drone.getId()) {
             LOGGER.info("ID MASTER DOPO ELEZIONE: " + drone.getDroneMaster().getId());
             forwardNewIdMaster(idMaster);
-            /*AsynchronousMedthods.asynchronousSendPositionToMaster(drone.getId(),
-                    MethodSupport.takeDroneFromList(drone, drones).getPosizionePartenza(),
-                    drone.getDroneMaster());*/
-
             asynchronousMedthods.asynchronousSendInfoAggiornateToNewMaster(drone);
         }
         else{
             //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
 
             drone.setInDelivery(false);
-
 
             //LOGGER.info("ANELLO NON PIU IN ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
 
@@ -115,7 +110,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
             while (true) {
                 try {
                     synchronized (sync){
-                        while (methodSupport.takeFreeDrone(drones).size() == 0) {
+                        while (methodSupport.takeFreeDrone().size() == 0) {
                             LOGGER.info("VAI IN WAIT POICHE' NON CI SONO DRONI DISPONIBILI\n");
                             sync.wait();
                         }
@@ -129,10 +124,10 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     }
 
     public void asynchronousSendConsegna(List<Drone> drones, Drone drone) throws InterruptedException {
-        Drone d = methodSupport.takeDroneFromList(drone, drones);
+        Drone d = methodSupport.takeDroneFromList(drone);
         Ordine ordine = queueOrdini.consume();
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(d, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(d);
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
@@ -171,7 +166,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
 
             //aggiorno la lista mettendo il drone che deve ricevere la consegna come occupato
 
-            methodSupport.takeDroneFromList(droneACuiConsegnare, drones).setConsegnaAssegnata(true);
+            methodSupport.takeDroneFromList(droneACuiConsegnare).setConsegnaAssegnata(true);
 
             //tolgo la consegna dalla coda delle consegne
             queueOrdini.remove(ordine);
@@ -187,7 +182,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
                     LOGGER.info("DURANTE L'INVIO DELL'ORDINE IL SUCCESSIVO È MORTO, LO ELIMINO E RIPROVO MANDANDO LA CONSEGNA AL SUCCESSIVO DEL SUCCESSIVO");
                     channel.shutdownNow();
                     synchronized (drones) {
-                        drones.remove(methodSupport.takeDroneSuccessivo(d, drones));
+                        drones.remove(methodSupport.takeDroneSuccessivo(d));
                     }
                 }
                 public void onCompleted() {
@@ -260,7 +255,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
     }
 
     public void forwardNewIdMaster(IdMaster idMaster){
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
 

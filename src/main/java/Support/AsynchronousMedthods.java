@@ -69,7 +69,7 @@ public class AsynchronousMedthods {
 
     public void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
 
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
 
         final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
         PingAliveGrpc.PingAliveStub stub = PingAliveGrpc.newStub(channel);
@@ -111,7 +111,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousStartElection(List<Drone> drones, Drone drone) throws InterruptedException {
-        Drone successivo = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
 
@@ -315,7 +315,7 @@ public class AsynchronousMedthods {
     public void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
-        Drone d = methodSupport.findDrone(drones, drone);
+        Drone d = methodSupport.findDrone(drone);
         Predicate<Drone> byId = dr -> dr.getId() != d.getId();
         List<Drone> pulito = drones.stream().filter(byId).collect(Collectors.toList());
 
@@ -331,7 +331,7 @@ public class AsynchronousMedthods {
                 stub.presentation(info, new StreamObserver<Message.isInElection>() {
                     @Override
                     public void onNext(Message.isInElection value) {
-                        methodSupport.takeDroneFromList(dron, drones).setInElection(value.getInElection());
+                        methodSupport.takeDroneFromList(dron).setInElection(value.getInElection());
                     }
 
                     @Override
@@ -357,7 +357,7 @@ public class AsynchronousMedthods {
     }
 
     public void asynchronousReceiveWhoIsMaster(List<Drone> drones, Drone drone) {
-        Drone succ = methodSupport.takeDroneSuccessivo(drone, drones);
+        Drone succ = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();
 
@@ -367,7 +367,7 @@ public class AsynchronousMedthods {
             stub.master(info, new StreamObserver<Message.WhoIsMaster>() {
                 @Override
                 public void onNext(Message.WhoIsMaster value) {
-                    drone.setDroneMaster(methodSupport.takeDroneFromId(drones, value.getIdMaster()));
+                    drone.setDroneMaster(methodSupport.takeDroneFromId(value.getIdMaster()));
                 }
 
                 @Override

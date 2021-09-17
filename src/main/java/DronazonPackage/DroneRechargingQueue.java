@@ -36,7 +36,7 @@ public class DroneRechargingQueue {
         List<Drone> ids = new ArrayList<>();
 
         for (MessageRecharge msg : codaRicarica){
-            ids.add(methodSupport.takeDroneFromId(drones, msg.getId()));
+            ids.add(methodSupport.takeDroneFromId(msg.getId()));
         }
         return ids;
     }
