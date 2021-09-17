@@ -23,12 +23,10 @@ public class AsynchronousMedthods {
     private static final String LOCALHOST = "localhost";
     private static final Logger LOGGER = Logger.getLogger(AsynchronousMedthods.class.getSimpleName());
     private final MethodSupport methodSupport;
-    private final Object election;
 
 
-    public AsynchronousMedthods(MethodSupport methodSupport, Object election){
+    public AsynchronousMedthods(MethodSupport methodSupport){
         this.methodSupport = methodSupport;
-        this.election = election;
     }
 
     public void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
@@ -155,7 +153,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousSendPositionToMaster(Point posizione, Drone master, List<Drone> drones, Drone drone){
+    public void asynchronousSendPositionToMaster(Point posizione, Drone master, Drone drone){
 
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+master.getPortaAscolto()).usePlaintext().build();
@@ -356,7 +354,7 @@ public class AsynchronousMedthods {
         }
     }
 
-    public void asynchronousReceiveWhoIsMaster(List<Drone> drones, Drone drone) {
+    public void asynchronousReceiveWhoIsMaster(Drone drone) {
         Drone succ = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":"+ succ.getPortaAscolto()).usePlaintext().build();

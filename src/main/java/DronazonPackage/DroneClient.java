@@ -59,7 +59,7 @@ public class DroneClient {
         election = new Object();
         methodSupport = new MethodSupport(drones);
         serverMethods = new ServerMethods(drones);
-        asynchronousMedthods = new AsynchronousMedthods(methodSupport, election);
+        asynchronousMedthods = new AsynchronousMedthods(methodSupport);
         droneRechargingQueue = new DroneRechargingQueue(methodSupport, drones);
         recharge = new Object();
     }
@@ -104,11 +104,11 @@ public class DroneClient {
                 sendStatisticToServer.start();
             } else {
                 asynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
-                asynchronousMedthods.asynchronousReceiveWhoIsMaster(drones, drone);
+                asynchronousMedthods.asynchronousReceiveWhoIsMaster(drone);
 
                 try {
                     asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone).getPosizionePartenza(),
-                            drone.getDroneMaster(), drones, drone);
+                            drone.getDroneMaster(), drone);
                 }
                 catch (NullPointerException e){
                     try {
@@ -129,7 +129,7 @@ public class DroneClient {
                             }
                         }
                         asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone).getPosizionePartenza(),
-                                drone.getDroneMaster(), drones, drone);
+                                drone.getDroneMaster(), drone);
                         LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
                     } catch (InterruptedException f) {
                         f.printStackTrace();

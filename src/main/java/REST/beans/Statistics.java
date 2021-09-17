@@ -29,7 +29,7 @@ public class Statistics {
         statistics.add(stat);
     }
 
-    public static String stampStatistics(List<Statistic> statistics){
+    public static synchronized String stampStatistics(List<Statistic> statistics){
         StringBuilder result = new StringBuilder();
         for (Statistic statistic: statistics) {
             result.append("timestamp: ").append(statistic.getTimestamp()).append("\n")
