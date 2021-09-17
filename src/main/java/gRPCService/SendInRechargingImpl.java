@@ -1,26 +1,20 @@
 package gRPCService;
 
 import DronazonPackage.DroneClient;
-import REST.beans.Drone;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendInRechargingGrpc.*;
 import io.grpc.stub.StreamObserver;
-
-import java.util.List;
 import java.util.logging.Logger;
 
 public class SendInRechargingImpl extends SendInRechargingImplBase {
 
-    private final List<Drone> droni;
     private final MethodSupport methodSupport;
     private final Logger LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
     private final Object recharge;
     private final Object sync;
 
-    public SendInRechargingImpl(List<Drone> droni, MethodSupport methodSupport, Object recharge, Object sync){
-
-        this.droni = droni;
+    public SendInRechargingImpl(MethodSupport methodSupport, Object recharge, Object sync){
         this.methodSupport = methodSupport;
         this.recharge = recharge;
         this.sync = sync;

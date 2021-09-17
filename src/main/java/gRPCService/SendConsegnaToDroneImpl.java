@@ -133,7 +133,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
                             synchronized (drones) {
                                 startElection(drones, d, masterCaduto);
                             }
-                            asynchronousMedthods.asynchronousStartElection(drones, d);
+                            asynchronousMedthods.asynchronousStartElection(d);
                         }
                         else {
                             synchronized (drones) {
@@ -178,7 +178,7 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
         drones.remove(masterCaduto);
         drone.setInElection(true);
         methodSupport.getDroneFromList(drone.getId()).setInElection(true);
-        asynchronousMedthods.asynchronousStartElection(drones, drone);
+        asynchronousMedthods.asynchronousStartElection(drone);
     }
 
     private void faiConsegna(Consegna consegna) throws InterruptedException {

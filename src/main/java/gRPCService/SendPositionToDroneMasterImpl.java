@@ -1,24 +1,20 @@
 package gRPCService;
 
-import REST.beans.Drone;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendPositionToDroneMasterGrpc;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
-import java.util.List;
 import java.util.logging.Logger;
 
 public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc.SendPositionToDroneMasterImplBase {
 
-    private final List<Drone> drones;
     private final MethodSupport methodSupport;
     private final Object sync;
     private final Logger LOGGER = Logger.getLogger(DronePresentationImpl .class.getSimpleName());
 
-    public SendPositionToDroneMasterImpl(List<Drone> drones, MethodSupport methodSupport, Object sync){
-        this.drones = drones;
+    public SendPositionToDroneMasterImpl(MethodSupport methodSupport, Object sync){
         this.methodSupport = methodSupport;
         this.sync = sync;
     }

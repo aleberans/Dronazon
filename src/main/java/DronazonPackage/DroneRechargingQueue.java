@@ -19,30 +19,27 @@ public class DroneRechargingQueue {
         codaRicarica = new ArrayList<>();
     }
 
-    public synchronized void add(MessageRecharge messageRecharge){
-        codaRicarica.add(messageRecharge);
-        notify();
-    }
-
-    public synchronized MessageRecharge takeMessageFromDrone(Drone drone){
-        for (MessageRecharge messageRecharge : codaRicarica) {
-            if (messageRecharge.getId() == drone.getId())
-                return messageRecharge;
+    public void add(MessageRecharge messageRecharge){
+        synchronized (codaRicarica) {
+            codaRicarica.add(messageRecharge);
+            codaRicarica.notify();
         }
-        return null;
     }
 
-    public synchronized List<Drone> takeDronesFromQueueInDrones(){
+    public List<Drone> takeDronesFromQueueInDrones(){
         List<Drone> ids = new ArrayList<>();
-
-        for (MessageRecharge msg : codaRicarica){
-            ids.add(methodSupport.takeDroneFromId(msg.getId()));
+        synchronized (codaRicarica) {
+            for (MessageRecharge msg : codaRicarica) {
+                ids.add(methodSupport.takeDroneFromId(msg.getId()));
+            }
         }
         return ids;
     }
 
-    public synchronized void cleanQueue(){
-        codaRicarica.clear();
+    public void cleanQueue(){
+        synchronized (codaRicarica) {
+            codaRicarica.clear();
+        }
     }
 
     @Override

@@ -23,10 +23,12 @@ public class AsynchronousMedthods {
     private static final String LOCALHOST = "localhost";
     private static final Logger LOGGER = Logger.getLogger(AsynchronousMedthods.class.getSimpleName());
     private final MethodSupport methodSupport;
+    private final List<Drone> drones;
 
 
-    public AsynchronousMedthods(MethodSupport methodSupport){
+    public AsynchronousMedthods(MethodSupport methodSupport, List<Drone> drones){
         this.methodSupport = methodSupport;
+        this.drones = drones;
     }
 
     public void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
@@ -65,7 +67,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousPingAlive(Drone drone, List<Drone> drones) throws InterruptedException {
+    public void asynchronousPingAlive(Drone drone) throws InterruptedException {
 
         Drone successivo = methodSupport.takeDroneSuccessivo(drone);
 
@@ -88,13 +90,13 @@ public class AsynchronousMedthods {
                         synchronized (drones){
                             drones.remove(successivo);
                         }
-                        asynchronousStartElection(drones, drone);
+                        asynchronousStartElection(drone);
                     }
                     else
                         synchronized (drones) {
                             drones.remove(successivo);
                         }
-                    asynchronousPingAlive(drone, drones);
+                    asynchronousPingAlive(drone);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -108,7 +110,7 @@ public class AsynchronousMedthods {
         channel.awaitTermination(10, TimeUnit.SECONDS);
     }
 
-    public void asynchronousStartElection(List<Drone> drones, Drone drone) throws InterruptedException {
+    public void asynchronousStartElection(Drone drone) throws InterruptedException {
         Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST+":"+successivo.getPortaAscolto()).usePlaintext().build();
@@ -134,7 +136,7 @@ public class AsynchronousMedthods {
                         drones.remove(successivo);
                     }
                     try {
-                        asynchronousStartElection(drones, drone);
+                        asynchronousStartElection(drone);
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
@@ -189,7 +191,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void rechargeBattery(Drone drone, List<Drone> drones){
+    public void rechargeBattery(Drone drone){
         for (Drone d: drones) {
             Context.current().fork().run(() -> {
                 final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":" + d.getPortaAscolto()).usePlaintext().build();
@@ -310,7 +312,7 @@ public class AsynchronousMedthods {
         });
     }
 
-    public void asynchronousSendDroneInformation(Drone drone, List<Drone> drones) {
+    public void asynchronousSendDroneInformation(Drone drone) {
 
         //trovo la lista di droni a cui mandare il messaggio escludendo il drone che chiama il metodo asynchronousSendDroneInformation
         Drone d = methodSupport.findDrone(drone);

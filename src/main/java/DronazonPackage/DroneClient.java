@@ -59,7 +59,7 @@ public class DroneClient {
         election = new Object();
         methodSupport = new MethodSupport(drones);
         serverMethods = new ServerMethods(drones);
-        asynchronousMedthods = new AsynchronousMedthods(methodSupport);
+        asynchronousMedthods = new AsynchronousMedthods(methodSupport, drones);
         droneRechargingQueue = new DroneRechargingQueue(methodSupport, drones);
         recharge = new Object();
     }
@@ -103,7 +103,7 @@ public class DroneClient {
                 SendStatisticToServer sendStatisticToServer = new SendStatisticToServer(drones, queueOrdini);
                 sendStatisticToServer.start();
             } else {
-                asynchronousMedthods.asynchronousSendDroneInformation(drone, drones);
+                asynchronousMedthods.asynchronousSendDroneInformation(drone);
                 asynchronousMedthods.asynchronousReceiveWhoIsMaster(drone);
 
                 try {
@@ -115,7 +115,7 @@ public class DroneClient {
                         Drone successivo = methodSupport.takeDroneSuccessivo(drone);
                         LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
                         drone.setInElection(true);
-                        asynchronousMedthods.asynchronousStartElection(drones, drone);
+                        asynchronousMedthods.asynchronousStartElection(drone);
                         LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
                                 "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());
                         synchronized (election) {
@@ -159,7 +159,7 @@ public class DroneClient {
         Server server = ServerBuilder.forPort(portaAscolto)
                 .addService(new DronePresentationImpl(drones, drone))
                 .addService(new ReceiveWhoIsMasterImpl(drone))
-                .addService(new SendPositionToDroneMasterImpl(drones, methodSupport, sync))
+                .addService(new SendPositionToDroneMasterImpl(methodSupport, sync))
                 .addService(new SendConsegnaToDroneImpl(drones, drone, queueOrdini, client, sync, inDelivery,
                         inForward, methodSupport, serverMethods, asynchronousMedthods, ricarica))
                 .addService(new ReceiveInfoAfterConsegnaImpl(drones, sync, methodSupport))
@@ -167,9 +167,9 @@ public class DroneClient {
                 .addService(new ElectionImpl(drone, drones, methodSupport))
                 .addService(new NewIdMasterImpl(drones, drone, sync, client, election, methodSupport, serverMethods, asynchronousMedthods))
                 .addService(new SendUpdatedInfoToMasterImpl(drones, drone, inForward, methodSupport))
-                .addService(new RechargeImpl(drones, drone, droneRechargingQueue, methodSupport, asynchronousMedthods, dronesMap))
+                .addService(new RechargeImpl(drone, droneRechargingQueue, methodSupport, asynchronousMedthods))
                 .addService(new AnswerRechargeImpl(drones, dronesMap, methodSupport, recharge))
-                .addService(new SendInRechargingImpl(drones, methodSupport, recharge, sync)).build();
+                .addService(new SendInRechargingImpl(methodSupport, recharge, sync)).build();
         server.start();
     }
 
@@ -186,12 +186,10 @@ public class DroneClient {
 
     static class SendStatisticToServer extends Thread {
 
-        private final List<Drone> drones;
         private final QueueOrdini queueOrdini;
         private final ServerMethods serverMethods;
 
         public SendStatisticToServer(List<Drone> drones, QueueOrdini queueOrdini) {
-            this.drones = drones;
             this.queueOrdini = queueOrdini;
             this.serverMethods = new ServerMethods(drones);
         }
@@ -253,7 +251,7 @@ public class DroneClient {
         public void run() {
             while (true) {
                 try {
-                    asynchronousMedthods.asynchronousPingAlive(drone, drones);
+                    asynchronousMedthods.asynchronousPingAlive(drone);
                     LOGGER.info("\nID DEL DRONE: " + drone.getId() + "\n" +
                              "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n" +
                              "POSIZIONE ATTUALE: " + drone.getPosizionePartenza() + "\n" +
@@ -302,7 +300,7 @@ public class DroneClient {
                                 }
                             }
                             LOGGER.info("DRONE INIZIA PROCESSO DI RICARICA");
-                            asynchronousMedthods.rechargeBattery(drone, drones);
+                            asynchronousMedthods.rechargeBattery(drone);
 
                             rechargeProcess(drone);
                         }
@@ -348,7 +346,7 @@ public class DroneClient {
 
                             synchronized (sync) {
                                 while (!methodSupport.allDroniLiberi()) {
-                                    LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE");
+                                    LOGGER.info("CI SONO ANCORA DRONI OCCUPATI NELLE CONSEGNE " + drones);
                                     sync.wait();
                                 }
                             }
