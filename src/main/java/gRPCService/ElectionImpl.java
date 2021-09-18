@@ -14,6 +14,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
+import javax.annotation.concurrent.ThreadSafe;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -48,7 +49,6 @@ public class ElectionImpl extends ElectionImplBase {
 
             drone.setInForwarding(true);
             drone.setInElection(true);
-
 
             //SE L'ID È UGUALE SIGNIFICA CHE IL MESSAGGIO HA FATTO TUTTO IL GIRO DELL'ANELLO ED È LUI IL MASTER
             if (currentIdMaster == drone.getId()) {

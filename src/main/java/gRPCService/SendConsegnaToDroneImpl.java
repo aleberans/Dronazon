@@ -108,8 +108,6 @@ public class SendConsegnaToDroneImpl extends SendConsegnaToDroneImplBase {
     }
 
     private void forwardConsegna(Consegna consegna) throws InterruptedException {
-
-
         Drone d = methodSupport.takeDroneFromList(drone);
         Drone successivo = methodSupport.takeDroneSuccessivo(d);
 

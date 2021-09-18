@@ -45,7 +45,7 @@ public class Amministratore {
 
                     checkResponse();
 
-                    System.out.println("Output from server... \n" + response.getEntity(String.class)  + "\n\n" );
+                    System.out.println("Output from server... \n\n" + response.getEntity(String.class)  + "\n" );
                     System.out.println(decisione);
                     break;
                 case "3":
@@ -59,7 +59,7 @@ public class Amministratore {
 
                     checkResponse();
 
-                    System.out.print("Output from Server..." + response.getEntity(String.class) + "\n\n");
+                    System.out.print("Media consegne: " + response.getEntity(String.class) + "\n\n");
                     System.out.println(decisione);
                     break;
                 case "4":
@@ -73,7 +73,7 @@ public class Amministratore {
 
                     checkResponse();
 
-                    System.out.println("Output from Server..." + response.getEntity(String.class)  + "\n\n");
+                    System.out.println("Media km percorsi consegne: " + response.getEntity(String.class)  + "\n\n");
                     System.out.println(decisione);
                     break;
                 default:

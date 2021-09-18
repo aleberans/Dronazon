@@ -259,7 +259,9 @@ public class DroneClient {
                              "TOTALE KM PERCORSI: " + drone.getKmPercorsiSingoloDrone() + "\n" +
                              "P10 RILEVATO: " + drone.getBufferPM10() + "\n" +
                              "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n" +
-                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni() + "\n");
+                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni() + "\n" +
+                             "IN CONSEGNA: " + drone.isInDelivery() + "\n" +
+                             "IN FORWARDING: " + drone.isInForwarding());
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();

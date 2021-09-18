@@ -66,6 +66,7 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         drone.setDroneMaster(methodSupport.takeDroneFromId(idMaster.getIdNewMaster()));
         drone.setInForwarding(true);
         drone.setInElection(false);
+
         synchronized (election){
                 LOGGER.info("TUTTI I DRONI SONO FUORI DALL'ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
                 election.notifyAll();
@@ -78,9 +79,8 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         }
         else{
             //LOGGER.info("IL MESSAGGIO CON IL NUOVO MASTER È TORNATO AL MASTER");
-
             drone.setInDelivery(false);
-
+            drone.setInForwarding(false);
             //LOGGER.info("ANELLO NON PIU IN ELEZIONE, POSSONO ENTRARE NUOVI DRONI");
 
             MqttMethods.subTopic("dronazon/smartcity/orders/", client, queueOrdini);
