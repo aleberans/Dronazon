@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -29,6 +30,11 @@ public class AsynchronousMedthods {
     public AsynchronousMedthods(MethodSupport methodSupport, List<Drone> drones){
         this.methodSupport = methodSupport;
         this.drones = drones;
+        LOGGER.setUseParentHandlers(false);
+        ConsoleHandler handler = new ConsoleHandler();
+        LogFormatterBlue formatter = new LogFormatterBlue();
+        handler.setFormatter(formatter);
+        LOGGER.addHandler(handler);
     }
 
     public void asynchronousSendInfoAggiornateToNewMaster(Drone drone){
@@ -117,10 +123,8 @@ public class AsynchronousMedthods {
 
             ElectionGrpc.ElectionStub stub = ElectionGrpc.newStub(channel);
 
-            LOGGER.info("DRONE CHE HA INDETTO: " + drone.getId());
             Message.ElectionMessage electionMessage = Message.ElectionMessage
                     .newBuilder()
-                    .setDroneCheHaIndetto(drone.getId())
                     .setIdCurrentMaster(drone.getId())
                     .setBatteriaResidua(drone.getBatteria())
                     .build();

@@ -55,7 +55,6 @@ message SendStat{
 }
 
 message ElectionMessage{
-  required int32 droneCheHaIndetto = 3;
   required int32 batteriaResidua = 1;
   required int32 idCurrentMaster = 2;
 

@@ -1,11 +1,13 @@
 package gRPCService;
 
+import Support.LogFormatterBlue;
 import Support.MethodSupport;
 import com.example.grpc.Message.*;
 import com.example.grpc.SendPositionToDroneMasterGrpc;
 import io.grpc.stub.StreamObserver;
 
 import java.awt.*;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.Logger;
 
 public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc.SendPositionToDroneMasterImplBase {
@@ -17,6 +19,11 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
     public SendPositionToDroneMasterImpl(MethodSupport methodSupport, Object sync){
         this.methodSupport = methodSupport;
         this.sync = sync;
+        LOGGER.setUseParentHandlers(false);
+        ConsoleHandler handler = new ConsoleHandler();
+        LogFormatterBlue formatter = new LogFormatterBlue();
+        handler.setFormatter(formatter);
+        LOGGER.addHandler(handler);
     }
 
     @Override

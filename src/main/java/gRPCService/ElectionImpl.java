@@ -42,7 +42,6 @@ public class ElectionImpl extends ElectionImplBase {
 
         int currentBatteriaResidua = electionMessage.getBatteriaResidua();
         int currentIdMaster = electionMessage.getIdCurrentMaster();
-        int idDroneCheHaIndetto = electionMessage.getDroneCheHaIndetto();
 
 
         if (!drone.isInElection() || (drone.getId() <= currentIdMaster )){
@@ -65,20 +64,20 @@ public class ElectionImpl extends ElectionImplBase {
             } else {
                 if (currentBatteriaResidua < drone.getBatteria()) {
                     methodSupport.getDroneFromList(currentIdMaster).setInDelivery(false);
-                    forwardElection(drone, drone.getId(), drone.getBatteria(), idDroneCheHaIndetto);
+                    forwardElection(drone, drone.getId(), drone.getBatteria());
                     //LOGGER.info("TROVATO DRONE CON BATTERIA MAGGIORE, LIBERO IL DRONE CHE ERA OCCUPATO");
                 } else if (currentBatteriaResidua > drone.getBatteria()) {
                     methodSupport.getDroneFromList(currentIdMaster).setInDelivery(true);
-                    forwardElection(drone, currentIdMaster, currentBatteriaResidua, idDroneCheHaIndetto);
+                    forwardElection(drone, currentIdMaster, currentBatteriaResidua);
                     //LOGGER.info("TROVATO DRONE CON BATTERIA MINORE");
                 } else {
                     if (currentIdMaster < drone.getId()) {
                         //LOGGER.info("ID DEL DRONE È PIÙ GRANDE DELL'ID CHE STA GIRANDO COME MASTER, LIBERO IL DRONE CHE ERA OCCUPATO");
                         methodSupport.getDroneFromList(currentIdMaster).setInDelivery(false);
-                        forwardElection(drone, drone.getId(), drone.getBatteria(), idDroneCheHaIndetto);
+                        forwardElection(drone, drone.getId(), drone.getBatteria());
                     } else if (currentIdMaster > drone.getId()) {
                         methodSupport.getDroneFromList(currentIdMaster).setInDelivery(true);
-                        forwardElection(drone, currentIdMaster, currentBatteriaResidua, idDroneCheHaIndetto);
+                        forwardElection(drone, currentIdMaster, currentBatteriaResidua);
                         //LOGGER.info("ID DEL DRONE È PIÙ PICCOLO DELL'ID CHE STA GIRANDO COME MASTER");
                     }
                 }
@@ -89,7 +88,7 @@ public class ElectionImpl extends ElectionImplBase {
         }
     }
 
-    private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua, int idDroneCheHaIndetto){
+    private void forwardElection(Drone drone, int updateIdMAster, int updatedBatteriaResidua){
         Drone successivo = methodSupport.takeDroneSuccessivo(drone);
         Context.current().fork().run( () -> {
             final ManagedChannel channel = ManagedChannelBuilder.forTarget("localhost:" + successivo.getPortaAscolto()).usePlaintext().build();
@@ -98,7 +97,6 @@ public class ElectionImpl extends ElectionImplBase {
 
             ElectionMessage newElectionMessage = ElectionMessage
                     .newBuilder()
-                    .setDroneCheHaIndetto(idDroneCheHaIndetto)
                     .setIdCurrentMaster(updateIdMAster)
                     .setBatteriaResidua(updatedBatteriaResidua)
                     .build();
@@ -115,7 +113,7 @@ public class ElectionImpl extends ElectionImplBase {
                     synchronized (drones) {
                         drones.remove(successivo);
                     }
-                    forwardElection(drone, updateIdMAster, updatedBatteriaResidua, idDroneCheHaIndetto);
+                    forwardElection(drone, updateIdMAster, updatedBatteriaResidua);
                 }
 
                 @Override

@@ -24,6 +24,7 @@ public class DroneClient {
 
     private final Random rnd;
     private final Logger LOGGER;
+    private final Logger LOGGERBLUE;
     private final QueueOrdini queueOrdini;
     private final String LOCALHOST;
     private final Object sync;
@@ -46,6 +47,7 @@ public class DroneClient {
         this.dronesMap = new HashMap<>();
         rnd = new Random();
         LOGGER = Logger.getLogger(DroneClient.class.getSimpleName());
+        LOGGERBLUE = Logger.getLogger(DroneClient.class.getSimpleName());
         queueOrdini = new QueueOrdini();
         LOCALHOST = "localhost";
         sync = new Object();
@@ -76,7 +78,9 @@ public class DroneClient {
             int portaAscolto = rnd.nextInt(1000) + 8080;
             Drone drone = new Drone(rnd.nextInt(10000), portaAscolto, LOCALHOST);
 
-            drones.addAll(serverMethods.addDroneServer(drone));
+            synchronized (drones) {
+                drones.addAll(serverMethods.addDroneServer(drone));
+            }
 
             methodSupport.updatePositionPartenzaDrone(drone);
 
@@ -116,8 +120,6 @@ public class DroneClient {
                         LOGGER.info("IL DRONE NON RIESCE A CONTATTARE IL MASTER, INDICE NUOVA ELEZIONE");
                         drone.setInElection(true);
                         asynchronousMedthods.asynchronousStartElection(drone);
-                        LOGGER.info("DRONE SUCCESSIVO È IN ELEZIONE? " + successivo.isInElection() + "\n" +
-                                "DRONE MEDESIMO IN ELEZIONE?" + drone.isInElection());
                         synchronized (election) {
                             if (successivo.isInElection() || drone.isInElection()) {
                                 try {
@@ -130,7 +132,7 @@ public class DroneClient {
                         }
                         asynchronousMedthods.asynchronousSendPositionToMaster(methodSupport.takeDroneFromList(drone).getPosizionePartenza(),
                                 drone.getDroneMaster(), drone);
-                        LOGGER.info("RIMANDO LA POS USANDO IL NUOVO DRONE MASTER!");
+                        LOGGER.info("POSIZIONE AGGIORNATA MANDATA AL NUOVO DRONE MASTER!");
                     } catch (InterruptedException f) {
                         f.printStackTrace();
                     }
@@ -252,16 +254,14 @@ public class DroneClient {
             while (true) {
                 try {
                     asynchronousMedthods.asynchronousPingAlive(drone);
-                    LOGGER.info("\nID DEL DRONE: " + drone.getId() + "\n" +
+                    LOGGERBLUE.info("\nID DEL DRONE: " + drone.getId() + "\n" +
                              "ID DEL MASTER CORRENTE: " + drone.getDroneMaster().getId() + "\n" +
                              "POSIZIONE ATTUALE: " + drone.getPosizionePartenza() + "\n" +
                              "TOTALE CONSEGNE EFFETTUATE: " + drone.getCountConsegne() + "\n" +
                              "TOTALE KM PERCORSI: " + drone.getKmPercorsiSingoloDrone() + "\n" +
                              "P10 RILEVATO: " + drone.getBufferPM10() + "\n" +
                              "PERCENTUALE BATTERIA RESIDUA: " + drone.getBatteria() + "\n" +
-                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni() + "\n" +
-                             "IN CONSEGNA: " + drone.isInDelivery() + "\n" +
-                             "IN FORWARDING: " + drone.isInForwarding());
+                             "LISTA DRONI ATTUALE: " + methodSupport.getAllIdDroni() + "\n");
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
