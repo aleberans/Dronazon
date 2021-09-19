@@ -50,13 +50,6 @@ public class NewIdMasterImpl extends NewIdMasterGrpc.NewIdMasterImplBase {
         this.asynchronousMedthods = asynchronousMedthods;
     }
 
-    /**
-     * Imposto lato ricezione del messaggio come master il drone che ha l'id del messaggio che arriva.
-     * Se arriva al drone che non è designato ad essere master imposto il nuovo master,
-     * mando la posizione e la batteria residua al master e inoltro il messaggio al drone successivo che farà esattamente la stessa cosa.
-     * Altrimenti significa che il messaggio è tornato al drone designato come nuovo master
-     * devo aggiornare la sua lista dei droni attivi
-     */
     @Override
     public void sendNewIdMaster(IdMaster idMaster, StreamObserver<ackMessage> streamObserver){
 

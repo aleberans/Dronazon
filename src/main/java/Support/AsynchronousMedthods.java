@@ -197,48 +197,50 @@ public class AsynchronousMedthods {
     }
 
     public void rechargeBattery(Drone drone){
-        for (Drone d: drones) {
-            Context.current().fork().run(() -> {
-                final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":" + d.getPortaAscolto()).usePlaintext().build();
+        synchronized (drones) {
+            for (Drone d : drones) {
+                Context.current().fork().run(() -> {
+                    final ManagedChannel channel = ManagedChannelBuilder.forTarget(LOCALHOST + ":" + d.getPortaAscolto()).usePlaintext().build();
 
-                RechargeGrpc.RechargeStub stub = RechargeGrpc.newStub(channel);
-                Date date = new Date();
-                Timestamp ts = new Timestamp(date.getTime());
-                Message.MessageRecharge rec = Message.MessageRecharge.newBuilder()
-                        .setName("RechargingStation")
-                        .setId(drone.getId())
-                        .setTimestamp(ts.toString())
-                        .build();
+                    RechargeGrpc.RechargeStub stub = RechargeGrpc.newStub(channel);
+                    Date date = new Date();
+                    Timestamp ts = new Timestamp(date.getTime());
+                    Message.MessageRecharge rec = Message.MessageRecharge.newBuilder()
+                            .setName("RechargingStation")
+                            .setId(drone.getId())
+                            .setTimestamp(ts.toString())
+                            .build();
 
-                stub.checkForRecharge(rec, new StreamObserver<Message.ackMessage>() {
-                    @Override
-                    public void onNext(Message.ackMessage value) {
+                    stub.checkForRecharge(rec, new StreamObserver<Message.ackMessage>() {
+                        @Override
+                        public void onNext(Message.ackMessage value) {
 
-                    }
+                        }
 
-                    @Override
-                    public void onError(Throwable t) {
+                        @Override
+                        public void onError(Throwable t) {
                         /*LOGGER.info("Error" + t.getMessage());
                         LOGGER.info("Error" + t.getCause());
                         LOGGER.info("Error" + t.getLocalizedMessage());
                         LOGGER.info("Error" + Arrays.toString(t.getStackTrace()));*/
-                        channel.shutdown();
-                        synchronized (drones) {
-                            drones.remove(d);
+                            channel.shutdown();
+                            synchronized (drones) {
+                                drones.remove(d);
+                            }
                         }
-                    }
 
-                    @Override
-                    public void onCompleted() {
-                        channel.shutdown();
+                        @Override
+                        public void onCompleted() {
+                            channel.shutdown();
+                        }
+                    });
+                    try {
+                        channel.awaitTermination(10, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                 });
-                try {
-                    channel.awaitTermination(10, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            });
+            }
         }
     }
 

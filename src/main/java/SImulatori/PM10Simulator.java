@@ -18,7 +18,6 @@ public class PM10Simulator extends Simulator {
 
     @Override
     public void run() {
-
         double i = rnd.nextInt();
         long waitingTime;
 
@@ -31,13 +30,10 @@ public class PM10Simulator extends Simulator {
             sensorSleep(waitingTime);
 
             i+=0.2;
-
         }
-
     }
 
     private double getPM10Value(double t){
         return Math.abs(A * Math.sin(W*t) + rnd.nextGaussian()*0.1)+15;
-
     }
 }

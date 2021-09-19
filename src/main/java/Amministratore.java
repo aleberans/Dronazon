@@ -38,6 +38,7 @@ public class Amministratore {
                     break;
                 case "2":
                     System.out.println("Quante statistiche globali vuoi visualizzare?");
+                    parametri.clear();
                     parametri.add("from", sc.nextLine());
 
                     webResource = client.resource(url + "/statistics/ultimeNStatistiche").queryParams(parametri);
