@@ -36,7 +36,7 @@ public class SendPositionToDroneMasterImpl extends SendPositionToDroneMasterGrpc
         updatePositionDrone(info.getId(), new Point(info.getPos().getX(), info.getPos().getY()));
 
         synchronized (sync){
-            LOGGER.info("RICEVUTE INFORMAZIONI SULLA POSIZIONE DEL DRONE, SVEGLIA SU SYNC");
+            LOGGER.info("RICEVUTE INFORMAZIONI SULLA POSIZIONE DEL DRONE");
             sync.notifyAll();
         }
     }
