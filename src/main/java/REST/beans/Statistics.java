@@ -14,7 +14,6 @@ public class Statistics {
 
     private final List<Statistic> statistics;
 
-
     private Statistics(){statistics = new ArrayList<>();}
 
     public static synchronized Statistics getInstance(){
